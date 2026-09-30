@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f4f2ed" />
-    <meta name="description" content="通过可交互的三维物体与参数，直观比较透视、正交、等轴测、斜投影和移轴投影。" />
+    <meta name="description" content="通过可交互的三维物体与参数，直观比较中心透视、正交、等轴测与斜投影。" />
     <title>投影实验室 · 几何视觉工作台</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpath d='m20 3 16 9v16l-16 9L4 28V12z' fill='%232d4e68'/%3E%3Cpath d='m20 11 9 5v9l-9 5-9-5v-9z' fill='none' stroke='%23f5a46d' stroke-width='2'/%3E%3Cpath d='M20 11v19m9-14-18 9m18 0-18-9' fill='none' stroke='%23f7f4ee' stroke-width='1.5'/%3E%3C/svg%3E" />
     <style>
@@ -135,8 +135,6 @@
       .relation-box { margin-top: 12px; padding: 12px; border-left: 2px solid #d98361; border-radius: 0 7px 7px 0; background: #faf4ef; }
       .relation-title { margin-bottom: 5px; color: #9c664f; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
       .relation-copy { color: #5d666a; font-size: 13px; line-height: 1.55; }
-      .principal-note { margin-top: 11px; padding: 10px 11px; border: 1px solid #eee9df; border-radius: 7px; color: #707a7e; background: #fbfaf7; font-size: 12px; line-height: 1.55; }
-      .principal-note strong { color: #a36349; font-weight: 650; }
       .axis-legend { display: grid; gap: 8px; margin-top: auto; padding-top: 18px; }
       .legend-title { margin-bottom: 1px; color: #8b9495; font-size: 11px; font-weight: 700; letter-spacing: .1em; }
       .legend-item { display: flex; align-items: center; gap: 9px; color: #727d82; font-size: 12px; }
@@ -167,7 +165,6 @@
         .formula-card { grid-column: 2; grid-row: 1 / span 2; }
         .relation-box { grid-column: 3; grid-row: 1; margin-top: 0; }
         .axis-legend { grid-column: 3; grid-row: 2; padding-top: 14px; }
-        .principal-note { grid-column: 1; }
       }
       @media (max-width: 980px) { .matrix-grid { grid-template-columns: 1fr 1fr; } .matrix-panel:first-child { grid-column: 1 / -1; } }
       @media (max-width: 760px) {
@@ -302,7 +299,6 @@
             <div class="relation-title">当前几何关系</div>
             <div class="relation-copy" id="relationCopy">视点到物体的距离改变时，投影尺寸随深度变化。</div>
           </div>
-          <div class="principal-note" id="principalPointNote"><strong>主点</strong>是相机光轴与像平面的交点。橙色十字标出它；移轴只平移主点，不旋转相机。</div>
           <div class="axis-legend">
             <div class="legend-title">画布标记</div>
             <div class="legend-item"><span class="legend-line"></span><span>可见轮廓</span></div>
@@ -334,7 +330,7 @@
             <pre class="matrix-value" id="matrixView" aria-live="polite"></pre>
           </article>
         </div>
-        <p class="matrix-footnote" id="matrixFootnote">中心透视中，FOV 改变 P 的焦距项；相机距离和平移/旋转改变 V。移轴通过 P 中的 sₓ、sᵧ 改变主点。</p>
+        <p class="matrix-footnote" id="matrixFootnote">中心透视中，FOV 改变 P 的焦距项；相机距离和视向改变 V。</p>
       </section>
       <footer class="page-footer"><span>拖动画布旋转；滑块只改变当前投影的相关量。</span><span>GEOMETRY · 01</span></footer>
     </main>
@@ -346,13 +342,12 @@
         const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
         const presets = {
           perspective: { family: "central", title: "中心透视", badge: "中心 · 透视", name: "透视投影", desc: "视线汇聚于视点", glyph: "◉", intro: "视线汇聚于有限距离的视点，远处物体看起来更小。", formula: "x′ = f · x / z\ny′ = f · y / z\nf = H / 2 tan(θ / 2)", note: "θ 为垂直视场角，f 为焦距，z 为相机空间深度。", relation: "物体离视点越远，像的线性尺寸越小；深度加倍时，尺寸约减半。", summary: "深度增加，像的尺度按 1 / z 缩小" },
-          shifted: { family: "central", title: "移轴透视", badge: "中心 · 移轴", name: "移轴投影", desc: "平移主点，不旋转相机", glyph: "⊕", intro: "保留透视缩放，只把成像主点从画面中心移开。", formula: "x′ = f · x / z + sₓ\ny′ = f · y / z + sᵧ", note: "sₓ、sᵧ 是像平面上的主点偏移；方向改变，消失点关系仍由相机方向决定。", relation: "移轴改变取景位置，不改变近大远小的缩放规律。", summary: "改变主点位置，透视缩放保持不变" },
           orthographic: { family: "parallel", title: "正交投影", badge: "平行 · 正交", name: "正交投影", desc: "平行投影线，无近大远小", glyph: "▤", intro: "投影线彼此平行，物体尺寸不随深度改变。", formula: "x′ = s · x\ny′ = s · y", note: "s 为统一比例因子。相机沿深度方向移动，不会改变物体在画面中的尺寸。", relation: "深度只改变前后位置；相同大小的物体始终等大。", summary: "深度变化，不改变投影尺寸" },
           isometric: { family: "parallel", title: "等轴测", badge: "平行 · 等轴测", name: "等轴测投影", glyph: "◇", desc: "三个坐标轴等比例缩短", intro: "沿三个轴的缩短比例相同，常用于工程图与游戏地图。", formula: "u = s · (x − z) / √2\nv = s · (2y − x − z) / √6", note: "三条主轴投影后的长度相等；标准视向仰角约 35.264°。", relation: "标准视向下，X、Y、Z 三轴在画面中的缩短比例相等。", summary: "三轴缩短比例相等" },
           oblique: { family: "parallel", title: "斜投影", badge: "平行 · 斜投影", name: "斜投影", glyph: "▱", desc: "正面保持形状，深度斜向退后", intro: "正面平行于画面，深度轴按指定角度与比例斜向延伸。", formula: "u = s · (x + k z cos α)\nv = s · (y + k z sin α)", note: "α 控制深度轴方向，k 控制深度缩短；正面平行于像平面。", relation: "正面尺寸保持不变，深度方向以比例 k 斜向偏移。", summary: "正面等大，深度轴斜向偏移" }
         };
         const state = {
-          object: "cube", projection: "perspective", fov: 58, distance: 6.8, shiftX: 0, shiftY: 0,
+          object: "cube", projection: "perspective", fov: 58, distance: 6.8,
           scale: 1.12, obliqueAngle: 45, depthFactor: .58, yaw: -.72, pitch: .35, manualOrbit: false, vanishingOverlay: true
         };
         const objectLabels = { cube: "立方体", square: "正方形", axes: "坐标轴", sphere: "球体" };
@@ -373,7 +368,7 @@
         }
 
         function renderPresets() {
-          const allowed = family() === "central" ? ["perspective", "shifted"] : ["orthographic", "isometric", "oblique"];
+          const allowed = family() === "central" ? ["perspective"] : ["orthographic", "isometric", "oblique"];
           $("#presetList").innerHTML = allowed.map(key => {
             const preset = presets[key];
             return `<button class="preset-option" type="button" data-preset="${key}" aria-pressed="${state.projection === key}"><span class="preset-glyph" aria-hidden="true">${preset.glyph}</span><span class="preset-copy"><span class="preset-name">${preset.name}</span><span class="preset-desc">${preset.desc}</span></span>${state.projection === key ? '<span class="preset-check" aria-hidden="true">●</span>' : ''}</button>`;
@@ -390,13 +385,9 @@
         function renderParams() {
           const key = state.projection;
           let html = "";
-          if (key === "perspective" || key === "shifted") {
+          if (key === "perspective") {
             html += sliderRow("fov", "视场角 FOV", state.fov, 24, 110, 1, "°", "24°", "110°");
             html += sliderRow("distance", "相机距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
-            if (key === "shifted") {
-              html += sliderRow("shiftX", "水平移轴 sₓ", state.shiftX, -.45, .45, .01, "%", "−45%", "+45%");
-              html += sliderRow("shiftY", "垂直移轴 sᵧ", state.shiftY, -.45, .45, .01, "%", "−45%", "+45%");
-            }
           } else if (key === "orthographic") {
             html += sliderRow("scale", "画面比例 s", state.scale, .65, 1.65, .01, "×", "缩小", "放大");
           } else if (key === "isometric") {
@@ -411,8 +402,8 @@
             input.addEventListener("input", () => {
               const value = Number(input.value);
               state[input.id] = value;
-              const unit = input.id === "scale" || input.id === "depthFactor" ? "×" : input.id.startsWith("shift") ? "%" : input.id === "distance" ? "" : "°";
-              const shown = unit === "×" ? format(value, 2) : input.id.startsWith("shift") ? `${value >= 0 ? "+" : ""}${Math.round(value * 100)}%` : input.id === "distance" ? format(value, 1) : `${Math.round(value)}°`;
+              const unit = input.id === "scale" || input.id === "depthFactor" ? "×" : input.id === "distance" ? "" : "°";
+              const shown = unit === "×" ? format(value, 2) : input.id === "distance" ? format(value, 1) : `${Math.round(value)}°`;
               $(`#${input.id}Value`).textContent = shown;
               input.style.setProperty("--fill", `${(value - Number(input.min)) / (Number(input.max) - Number(input.min)) * 100}%`);
               render();
@@ -438,7 +429,7 @@
           render();
         }
 
-        function isCentralProjection() { return state.projection === "perspective" || state.projection === "shifted"; }
+        function isCentralProjection() { return state.projection === "perspective"; }
 
         function matrixText(matrix) {
           return matrix.map(row => `[ ${row.map(value => Number(value).toFixed(3).padStart(8, " ")).join("  ")} ]`).join("\n");
@@ -446,7 +437,7 @@
 
         function symbolicProjectionMatrix() {
           if (isCentralProjection()) {
-            return "[ q/a     0    −2sₓ      0 ]\n[   0     q     2sᵧ      0 ]\n[   0     0   −(F+n)/(F−n)  −2Fn/(F−n) ]\n[   0     0     −1       0 ]\n\nq = cot(θ/2),  a = W/H";
+            return "[ q/a     0       0       0 ]\n[   0     q       0       0 ]\n[   0     0   −(F+n)/(F−n)  −2Fn/(F−n) ]\n[   0     0      −1       0 ]\n\nq = cot(θ/2),  a = W/H";
           }
           if (state.projection === "oblique") {
             return "[ 2S/W    0   2Sk·cosα/W   0 ]\n[   0   2S/H  2Sk·sinα/H   0 ]\n[   0     0        0        0 ]\n[   0     0        0        1 ]\n\nS = 0.185·min(W,H)·s";
@@ -458,11 +449,9 @@
           const near = .1, far = 100;
           if (isCentralProjection()) {
             const q = 1 / Math.tan(radians(state.fov) / 2), aspect = width / Math.max(1, height);
-            const sx = state.projection === "shifted" ? state.shiftX : 0;
-            const sy = state.projection === "shifted" ? state.shiftY : 0;
             return [
-              [q / aspect, 0, -2 * sx, 0],
-              [0, q, 2 * sy, 0],
+              [q / aspect, 0, 0, 0],
+              [0, q, 0, 0],
               [0, 0, -(far + near) / (far - near), -(2 * far * near) / (far - near)],
               [0, 0, -1, 0]
             ];
@@ -499,17 +488,16 @@
         }
 
         function updateMatrices() {
-          const shifted = state.projection === "shifted";
           const centerModes = isCentralProjection();
           const size = `${Math.round(width)} × ${Math.round(height)} px`;
           $("#matrixSymbolic").textContent = symbolicProjectionMatrix();
           $("#matrixProjection").textContent = matrixText(projectionMatrix());
           $("#matrixView").textContent = matrixText(viewMatrix());
           $("#matrixSymbolicNote").textContent = centerModes
-            ? `中心透视：sₓ=sᵧ=0；移轴透视代入当前主点偏移。视口 ${size}。`
+            ? `中心透视使用垂直视场角 θ 与画幅比例 a。视口 ${size}。`
             : `${state.projection === "oblique" ? "斜投影使用画布平行映射。" : "正交与等轴测共用正交 P；视向由 V 决定。"}视口 ${size}。`;
           $("#matrixProjectionNote").textContent = centerModes
-            ? `θ=${Math.round(state.fov)}°${shifted ? `，sₓ=${format(state.shiftX, 2)}，sᵧ=${format(state.shiftY, 2)}` : ""}；近/远裁剪面 n=0.1，F=100。`
+            ? `θ=${Math.round(state.fov)}°；近/远裁剪面 n=0.1，F=100。`
             : state.projection === "oblique"
               ? `α=${Math.round(state.obliqueAngle)}°，k=${format(state.depthFactor, 2)}，比例 s=${format(state.scale, 2)}。`
               : `画面比例 s=${format(state.scale, 2)}；近/远裁剪面 n=0.1，F=100。`;
@@ -517,7 +505,7 @@
             ? "斜投影保持 V=I；拖动不旋转相机，深度方向由 α 控制。"
             : `相机距离 D=${format(state.distance, 2)}；视角 yaw=${format(state.yaw, 2)} rad，pitch=${format(state.pitch, 2)} rad。`;
           $("#matrixFootnote").textContent = centerModes
-            ? `FOV 改变 P 的焦距项；相机距离与旋转改变 V。${shifted ? "移轴通过 P 中的 sₓ、sᵧ 平移主点，不改变近大远小。" : "普通透视令 sₓ=sᵧ=0，主点位于画面中心。"}`
+            ? "FOV 改变 P 的焦距项；相机距离与视向旋转改变 V。拖动画布会改变灭点位置，不改变投影类别。"
             : state.projection === "oblique"
               ? "斜投影矩阵直接把深度 z 按 k 与 α 加到画面坐标；第三行不参与 Canvas 的 2D 绘制。"
               : "正交 P 不含透视除法项；等轴测通过 V 旋转物体视向，再使用同一正交 P。";
@@ -533,13 +521,17 @@
           $("#relationCopy").textContent = preset.relation;
           $("#relationSummary").textContent = preset.summary;
           $("#sceneCode").textContent = objectCodes[state.object];
-          $("#principalPointNote").hidden = !isCentralProjection();
-          $("#vanishingControl").hidden = !(state.object === "cube" && isCentralProjection());
+          $("#vanishingControl").hidden = state.object !== "cube";
           $("#vanishingToggle").checked = state.vanishingOverlay;
-          $("#stageHint").textContent = state.projection === "oblique" ? "方向由 α 控制" : "拖动旋转视角";
+          $("#stageHint").textContent = state.projection === "oblique"
+            ? "方向由 α 控制"
+            : state.object === "cube" && state.vanishingOverlay && !isCentralProjection()
+              ? "平行线不相交 · 灭点在无穷远"
+              : state.object === "cube" && state.vanishingOverlay
+                ? "虚线延长至灭点 · 拖动改变视向"
+                : "拖动旋转视角";
           let summary = "";
           if (state.projection === "perspective") summary = `FOV ${Math.round(state.fov)}°　·　D ${format(state.distance)}`;
-          else if (state.projection === "shifted") summary = `FOV ${Math.round(state.fov)}°　·　移轴 ${Math.round(state.shiftX * 100)}%, ${Math.round(state.shiftY * 100)}%`;
           else if (state.projection === "orthographic") summary = `比例 ${format(state.scale, 2)}×　·　平行视线`;
           else if (state.projection === "isometric") summary = `标准仰角 35.264°　·　比例 ${format(state.scale, 2)}×${state.manualOrbit ? "　·　视向已调整" : ""}`;
           else summary = `α ${Math.round(state.obliqueAngle)}°　·　k ${format(state.depthFactor, 2)}×`;
@@ -558,10 +550,10 @@
 
         function project(p) {
           const t = transformPoint(p);
-          const centerX = width * (.5 + (state.projection === "shifted" ? state.shiftX : 0));
-          const centerY = height * (.5 + (state.projection === "shifted" ? state.shiftY : 0));
+          const centerX = width * .5;
+          const centerY = height * .5;
           const base = Math.min(width, height) * .185 * state.scale;
-          if (state.projection === "perspective" || state.projection === "shifted") {
+          if (state.projection === "perspective") {
             const depth = Math.max(.65, state.distance - t.z);
             const focal = height / (2 * Math.tan(radians(state.fov) / 2));
             const amount = focal / depth;
@@ -585,7 +577,7 @@
         function drawGrid() {
           if (state.object === "axes") return;
           ctx.save();
-          const alpha = state.projection === "perspective" || state.projection === "shifted" ? .17 : .24;
+          const alpha = state.projection === "perspective" ? .17 : .24;
           ctx.lineWidth = 1;
           for (let i = -4; i <= 4; i++) {
             ctx.strokeStyle = `rgba(109, 129, 137, ${i === 0 ? alpha * 1.7 : alpha})`;
@@ -687,7 +679,7 @@
         }
 
         function drawExtendedCubeLines() {
-          if (!state.vanishingOverlay || state.object !== "cube" || !isCentralProjection()) return;
+          if (!state.vanishingOverlay || state.object !== "cube") return;
           ctx.save();
           for (const axis of ["x", "y", "z"]) {
             for (const [i, j] of cubeAxisEdges[axis]) drawExtendedScreenLine(project(cubeVertices[i]), project(cubeVertices[j]), vanishingColors[axis]);
@@ -696,24 +688,27 @@
         }
 
         function drawVanishingPoints() {
-          if (!state.vanishingOverlay || state.object !== "cube" || !isCentralProjection()) return;
-          const centerX = width * (.5 + (state.projection === "shifted" ? state.shiftX : 0));
-          const centerY = height * (.5 + (state.projection === "shifted" ? state.shiftY : 0));
+          if (!state.vanishingOverlay || state.object !== "cube") return;
+          const center = project({ x: 0, y: 0, z: 0 });
+          const centerX = center.x, centerY = center.y;
           const focal = height / (2 * Math.tan(radians(state.fov) / 2));
           const directions = { x: { x: 1, y: 0, z: 0 }, y: { x: 0, y: 1, z: 0 }, z: { x: 0, y: 0, z: 1 } };
           for (const axis of ["x", "y", "z"]) {
             const d = transformPoint(directions[axis]);
-            let point, atInfinity = Math.abs(d.z) < .025;
-            if (atInfinity) {
-              const sign = d.z < 0 ? -1 : 1;
-              point = { x: centerX - d.x * sign, y: centerY + d.y * sign };
-            } else {
+            const central = isCentralProjection();
+            const atInfinity = !central || Math.abs(d.z) < .025;
+            let point;
+            if (central && !atInfinity) {
               point = { x: centerX - focal * d.x / d.z, y: centerY + focal * d.y / d.z };
+            } else {
+              const tip = central ? project(directions[axis]) : project({ x: directions[axis].x * 2, y: directions[axis].y * 2, z: directions[axis].z * 2 });
+              let dx = tip.x - centerX, dy = tip.y - centerY;
+              const length = Math.hypot(dx, dy) || 1;
+              point = { x: centerX + dx / length, y: centerY + dy / length };
             }
-            const inside = !atInfinity && point.x >= 18 && point.x <= width - 58 && point.y >= 22 && point.y <= height - 16;
+            const inside = central && !atInfinity && point.x >= 18 && point.x <= width - 58 && point.y >= 22 && point.y <= height - 16;
             if (!inside) {
               let dx = point.x - centerX, dy = point.y - centerY;
-              if (atInfinity) { dx *= focal; dy *= focal; }
               if (Math.abs(dx) + Math.abs(dy) < 1e-6) { dx = 1; dy = 0; }
               const candidates = [];
               if (dx > 0) candidates.push((width - 12 - centerX) / dx);
@@ -729,7 +724,7 @@
             ctx.fillStyle = "#fffefa"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.stroke();
             ctx.font = "600 11px ui-monospace, SFMono-Regular, Consolas, monospace";
             ctx.fillStyle = color;
-            const labelText = inside ? label : `${label} · 画外`;
+            const labelText = !central ? `${label} → ∞` : inside ? label : `${label} · 画外`;
             const textWidth = ctx.measureText(labelText).width;
             const labelX = point.x > width * .68 ? point.x - textWidth - 9 : point.x + 9;
             const labelY = clamp(point.y - 7, 14, height - 5);
@@ -758,7 +753,7 @@
 
         function drawSphere() {
           const center = project({ x: 0, y: 0, z: 0 });
-          const radius = state.projection === "perspective" || state.projection === "shifted" ? center.amount * 1.24 : Math.min(width, height) * .185 * state.scale * 1.24;
+          const radius = isCentralProjection() ? center.amount * 1.24 : Math.min(width, height) * .185 * state.scale * 1.24;
           const gradient = ctx.createRadialGradient(center.x - radius * .36, center.y - radius * .45, radius * .05, center.x, center.y, radius * 1.05);
           gradient.addColorStop(0, "rgba(179, 202, 204, .55)"); gradient.addColorStop(.72, "rgba(104, 151, 164, .19)"); gradient.addColorStop(1, "rgba(74, 117, 139, .08)");
           ctx.beginPath(); ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); ctx.fillStyle = gradient; ctx.fill();
@@ -790,16 +785,6 @@
           }
         }
 
-        function drawPrincipalPoint() {
-          if (state.projection !== "perspective" && state.projection !== "shifted") return;
-          const x = width * (.5 + state.shiftX), y = height * (.5 + state.shiftY);
-          ctx.save(); ctx.strokeStyle = "rgba(217, 111, 75, .72)"; ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(x - 7, y); ctx.lineTo(x + 7, y); ctx.moveTo(x, y - 7); ctx.lineTo(x, y + 7); ctx.stroke();
-          ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fillStyle = "#d96f4b"; ctx.fill();
-          ctx.font = "11px ui-sans-serif, system-ui, sans-serif"; ctx.fillStyle = "rgba(148, 91, 68, .8)"; ctx.fillText("主点", x + 9, y - 7);
-          ctx.restore();
-        }
-
         function draw() {
           ctx.clearRect(0, 0, width, height);
           drawGrid();
@@ -810,7 +795,6 @@
           else drawSphere();
           if (state.object !== "axes") drawAxes(state.object === "square" ? 1.15 : .95);
           drawVanishingPoints();
-          drawPrincipalPoint();
         }
 
         function resize() {
@@ -827,9 +811,9 @@
 
         $$(".object-option").forEach(button => button.addEventListener("click", () => setObject(button.dataset.object)));
         $$(".family-option").forEach(button => button.addEventListener("click", () => selectProjection(button.dataset.family === "central" ? "perspective" : "orthographic")));
-        $("#vanishingToggle").addEventListener("change", event => { state.vanishingOverlay = event.target.checked; draw(); });
+        $("#vanishingToggle").addEventListener("change", event => { state.vanishingOverlay = event.target.checked; render(); });
         $("#resetButton").addEventListener("click", () => {
-          state.fov = 58; state.distance = 6.8; state.shiftX = 0; state.shiftY = 0; state.scale = 1.12;
+          state.fov = 58; state.distance = 6.8; state.scale = 1.12;
           state.obliqueAngle = 45; state.depthFactor = .58; state.manualOrbit = false;
           if (state.projection === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
           else if (state.projection === "oblique") { state.yaw = 0; state.pitch = 0; }
@@ -873,8 +857,6 @@
                   projection: { type: "string", enum: Object.keys(presets) },
                   fov: { type: "number", minimum: 24, maximum: 110 },
                   distance: { type: "number", minimum: 4, maximum: 14 },
-                  shiftX: { type: "number", minimum: -.45, maximum: .45 },
-                  shiftY: { type: "number", minimum: -.45, maximum: .45 },
                   scale: { type: "number", minimum: .65, maximum: 1.65 },
                   obliqueAngle: { type: "number", minimum: 20, maximum: 70 },
                   depthFactor: { type: "number", minimum: .2, maximum: 1 },
@@ -887,13 +869,13 @@
                 if (input.object !== undefined && !Object.hasOwn(objectLabels, input.object)) throw new RangeError("Unknown object.");
                 if (input.projection !== undefined && !Object.hasOwn(presets, input.projection)) throw new RangeError("Unknown projection.");
                 if (input.vanishingOverlay !== undefined && typeof input.vanishingOverlay !== "boolean") throw new TypeError("vanishingOverlay must be a boolean.");
-                for (const [key, limits] of Object.entries({ fov: [24, 110], distance: [4, 14], shiftX: [-.45, .45], shiftY: [-.45, .45], scale: [.65, 1.65], obliqueAngle: [20, 70], depthFactor: [.2, 1] })) {
+                for (const [key, limits] of Object.entries({ fov: [24, 110], distance: [4, 14], scale: [.65, 1.65], obliqueAngle: [20, 70], depthFactor: [.2, 1] })) {
                   if (input[key] !== undefined && (typeof input[key] !== "number" || !Number.isFinite(input[key]) || input[key] < limits[0] || input[key] > limits[1])) throw new RangeError(`${key} is outside its supported range.`);
                 }
                 if (input.object !== undefined) state.object = input.object;
                 if (input.projection !== undefined) state.projection = input.projection;
                 if (input.vanishingOverlay !== undefined) state.vanishingOverlay = input.vanishingOverlay;
-                for (const key of ["fov", "distance", "shiftX", "shiftY", "scale", "obliqueAngle", "depthFactor"]) if (input[key] !== undefined) state[key] = input[key];
+                for (const key of ["fov", "distance", "scale", "obliqueAngle", "depthFactor"]) if (input[key] !== undefined) state[key] = input[key];
                 state.manualOrbit = false;
                 if (state.projection === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
                 else if (state.projection === "oblique") { state.yaw = 0; state.pitch = 0; }
@@ -901,7 +883,7 @@
                 setPressed(".object-option", "object", state.object);
                 setPressed(".family-option", "family", family());
                 renderPresets(); renderParams(); render();
-                return { object: state.object, projection: state.projection, title: current().title, fov: state.fov, distance: state.distance, shiftX: state.shiftX, shiftY: state.shiftY, scale: state.scale, obliqueAngle: state.obliqueAngle, depthFactor: state.depthFactor, vanishingOverlay: state.vanishingOverlay };
+                return { object: state.object, projection: state.projection, title: current().title, fov: state.fov, distance: state.distance, scale: state.scale, obliqueAngle: state.obliqueAngle, depthFactor: state.depthFactor, vanishingOverlay: state.vanishingOverlay };
               }
             }, { signal: lifecycle.signal })).catch(error => console.warn("Projection demo tool registration was unavailable.", error));
           } catch (error) {
