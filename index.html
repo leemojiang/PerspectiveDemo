@@ -343,6 +343,7 @@
         const presets = {
           perspective: { family: "central", title: "中心透视", badge: "中心 · 透视", name: "透视投影", desc: "视线汇聚于视点", glyph: "◉", intro: "视线汇聚于有限距离的视点，远处物体看起来更小。", formula: "x′ = f · x / z\ny′ = f · y / z\nf = H / 2 tan(θ / 2)", note: "θ 为垂直视场角，f 为焦距，z 为相机空间深度。", relation: "物体离视点越远，像的线性尺寸越小；深度加倍时，尺寸约减半。", summary: "深度增加，像的尺度按 1 / z 缩小" },
           reversePerspective: { family: "central", title: "反向透视", badge: "中心 · 反向透视", name: "反向透视", desc: "近处缩小，远处放大", glyph: "↗", intro: "把虚拟投影中心放到场景远侧，投影线向外张开，因此近处较小、远处较大。", formula: "x′ = f · x / (D + z)\ny′ = f · y / (D + z)\nf = H / 2 tan(θ / 2)", note: "z 是相机视向深度，正值朝向观察者；D 是参考距离，需保持 D + z > 0。", relation: "离远侧虚拟投影中心越近，放大越强；接近 w = 0 的平面时，尺度会急剧增加。", summary: "近处缩小，远处放大 · 投影线向外张开" },
+          weakPerspective: { family: "central", title: "弱透视", badge: "中心 · 弱透视", name: "弱透视", desc: "用平均深度统一缩放", glyph: "≈", intro: "把物体各点的深度近似为平均深度 D，因此每个点使用相同缩放。", formula: "x′ ≈ (f / D) · x\ny′ ≈ (f / D) · y\nf = H / 2 tan(θ / 2)", note: "这是透视投影在物体深度变化较小时的近似，也称缩放正交投影。", relation: "整件物体随平均距离缩放；物体内部的近远部分几乎等大。", summary: "保留整体缩放，压低物体内部的近大远小" },
           orthographic: { family: "parallel", title: "正交投影", badge: "平行 · 正交", name: "正交投影", desc: "平行投影线，无近大远小", glyph: "▤", intro: "投影线彼此平行，物体尺寸不随深度改变。", formula: "x′ = s · x\ny′ = s · y", note: "s 为统一比例因子。相机沿深度方向移动，不会改变物体在画面中的尺寸。", relation: "深度只改变前后位置；相同大小的物体始终等大。", summary: "深度变化，不改变投影尺寸" },
           isometric: { family: "parallel", title: "等轴测", badge: "平行 · 等轴测", name: "等轴测投影", glyph: "◇", desc: "三个坐标轴等比例缩短", intro: "沿三个轴的缩短比例相同，常用于工程图与游戏地图。", formula: "u = s · (x − z) / √2\nv = s · (2y − x − z) / √6", note: "三条主轴投影后的长度相等；标准视向仰角约 35.264°。", relation: "标准视向下，X、Y、Z 三轴在画面中的缩短比例相等。", summary: "三轴缩短比例相等" },
           oblique: { family: "parallel", title: "斜投影", badge: "平行 · 斜投影", name: "斜投影", glyph: "▱", desc: "正面保持形状，深度斜向退后", intro: "正面平行于画面，深度轴按指定角度与比例斜向延伸。", formula: "u = s · (x + k z cos α)\nv = s · (y + k z sin α)", note: "α 控制深度轴方向，k 控制深度缩短；正面平行于像平面。", relation: "正面尺寸保持不变，深度方向以比例 k 斜向偏移。", summary: "正面等大，深度轴斜向偏移" }
@@ -386,7 +387,7 @@
         function renderParams() {
           const key = state.projection;
           let html = "";
-          if (key === "perspective" || key === "reversePerspective") {
+          if (key === "perspective" || key === "reversePerspective" || key === "weakPerspective") {
             html += sliderRow("fov", "视场角 FOV", state.fov, 24, 110, 1, "°", "24°", "110°");
             html += sliderRow("distance", "相机距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
           } else if (key === "orthographic") {
@@ -430,13 +431,17 @@
           render();
         }
 
-        function isCentralProjection() { return state.projection === "perspective" || state.projection === "reversePerspective"; }
+        function isCentralProjection() { return state.projection === "perspective" || state.projection === "reversePerspective" || state.projection === "weakPerspective"; }
+        function hasFiniteVanishingPoints() { return state.projection === "perspective" || state.projection === "reversePerspective"; }
 
         function matrixText(matrix) {
           return matrix.map(row => `[ ${row.map(value => Number(value).toFixed(3).padStart(8, " ")).join("  ")} ]`).join("\n");
         }
 
         function symbolicProjectionMatrix() {
+          if (state.projection === "weakPerspective") {
+            return "[ q/(aD)    0      0      0 ]\n[   0      q/D     0      0 ]\n[   0       0   −2/(F−n)  −(F+n)/(F−n) ]\n[   0       0      0      1 ]\n\nq = cot(θ/2),  a = W/H";
+          }
           if (state.projection === "reversePerspective") {
             return "[ q/a     0       0       0 ]\n[   0     q       0       0 ]\n[   0     0       α       β ]\n[   0     0       1      2D ]\n\nq = cot(θ/2),  a = W/H\nα = D/(n−D),  β = n−2D+αn,  n = 0.1";
           }
@@ -451,6 +456,15 @@
 
         function projectionMatrix() {
           const near = .1, far = 100;
+          if (state.projection === "weakPerspective") {
+            const q = 1 / Math.tan(radians(state.fov) / 2), aspect = width / Math.max(1, height);
+            return [
+              [q / (aspect * state.distance), 0, 0, 0],
+              [0, q / state.distance, 0, 0],
+              [0, 0, -2 / (far - near), -(far + near) / (far - near)],
+              [0, 0, 0, 1]
+            ];
+          }
           if (state.projection === "reversePerspective") {
             const q = 1 / Math.tan(radians(state.fov) / 2), aspect = width / Math.max(1, height);
             const depthA = state.distance / (near - state.distance);
@@ -508,13 +522,17 @@
           $("#matrixSymbolic").textContent = symbolicProjectionMatrix();
           $("#matrixProjection").textContent = matrixText(projectionMatrix());
           $("#matrixView").textContent = matrixText(viewMatrix());
-          $("#matrixSymbolicNote").textContent = state.projection === "reversePerspective"
+          $("#matrixSymbolicNote").textContent = state.projection === "weakPerspective"
+            ? `弱透视把所有顶点深度近似为平均值 D；视口 ${size}。`
+            : state.projection === "reversePerspective"
             ? `反向透视把齐次 w 改为 z_c + 2D；视口 ${size}。`
             : centerModes
             ? `中心透视使用垂直视场角 θ 与画幅比例 a。视口 ${size}。`
             : `${state.projection === "oblique" ? "斜投影使用画布平行映射。" : "正交与等轴测共用正交 P；视向由 V 决定。"}视口 ${size}。`;
           $("#matrixProjectionNote").textContent = centerModes
-            ? state.projection === "reversePerspective"
+            ? state.projection === "weakPerspective"
+              ? `θ=${Math.round(state.fov)}°，D=${format(state.distance, 2)}；整件物体共用比例 f/D。`
+              : state.projection === "reversePerspective"
               ? `θ=${Math.round(state.fov)}°，D=${format(state.distance, 2)}；n=0.1，远裁剪面 F=2D−n。`
               : `θ=${Math.round(state.fov)}°；近/远裁剪面 n=0.1，F=100。`
             : state.projection === "oblique"
@@ -523,7 +541,9 @@
           $("#matrixViewNote").textContent = state.projection === "oblique"
             ? "斜投影保持 V=I；拖动不旋转相机，深度方向由 α 控制。"
             : `相机距离 D=${format(state.distance, 2)}；视角 yaw=${format(state.yaw, 2)} rad，pitch=${format(state.pitch, 2)} rad。`;
-          $("#matrixFootnote").textContent = state.projection === "reversePerspective"
+          $("#matrixFootnote").textContent = state.projection === "weakPerspective"
+            ? "弱透视移除了逐点的透视除法，P 的 x/y 比例项含 f/D；相机距离只改变整件物体的统一缩放。"
+            : state.projection === "reversePerspective"
             ? "最后一行令 w=z_c+2D，因此深度越远，w 越小、画面尺度越大。w=0 是奇异平面，远裁剪面设在它之前。"
             : centerModes
             ? "FOV 改变 P 的焦距项；相机距离与视向旋转改变 V。拖动画布会改变灭点位置，不改变投影类别。"
@@ -546,7 +566,7 @@
           $("#vanishingToggle").checked = state.vanishingOverlay;
           $("#stageHint").textContent = state.projection === "oblique"
             ? "方向由 α 控制"
-            : state.object === "cube" && state.vanishingOverlay && !isCentralProjection()
+                : state.object === "cube" && state.vanishingOverlay && !hasFiniteVanishingPoints()
               ? "平行线不相交 · 灭点在无穷远"
               : state.object === "cube" && state.vanishingOverlay
                 ? "虚线延长至灭点 · 拖动改变视向"
@@ -554,6 +574,7 @@
           let summary = "";
           if (state.projection === "perspective") summary = `FOV ${Math.round(state.fov)}°　·　D ${format(state.distance)}`;
           else if (state.projection === "reversePerspective") summary = `FOV ${Math.round(state.fov)}°　·　D ${format(state.distance)}　·　远大近小`;
+          else if (state.projection === "weakPerspective") summary = `FOV ${Math.round(state.fov)}°　·　平均深度 ${format(state.distance)}`;
           else if (state.projection === "orthographic") summary = `比例 ${format(state.scale, 2)}×　·　平行视线`;
           else if (state.projection === "isometric") summary = `标准仰角 35.264°　·　比例 ${format(state.scale, 2)}×${state.manualOrbit ? "　·　视向已调整" : ""}`;
           else summary = `α ${Math.round(state.obliqueAngle)}°　·　k ${format(state.depthFactor, 2)}×`;
@@ -577,6 +598,12 @@
           const base = Math.min(width, height) * .185 * state.scale;
           if (state.projection === "perspective") {
             const depth = Math.max(.65, state.distance - t.z);
+            const focal = height / (2 * Math.tan(radians(state.fov) / 2));
+            const amount = focal / depth;
+            return { x: centerX + amount * t.x, y: centerY - amount * t.y, z: t.z, depth, amount };
+          }
+          if (state.projection === "weakPerspective") {
+            const depth = state.distance;
             const focal = height / (2 * Math.tan(radians(state.fov) / 2));
             const amount = focal / depth;
             return { x: centerX + amount * t.x, y: centerY - amount * t.y, z: t.z, depth, amount };
@@ -726,7 +753,7 @@
           const directions = { x: { x: 1, y: 0, z: 0 }, y: { x: 0, y: 1, z: 0 }, z: { x: 0, y: 0, z: 1 } };
           for (const axis of ["x", "y", "z"]) {
             const d = transformPoint(directions[axis]);
-            const central = isCentralProjection();
+            const central = hasFiniteVanishingPoints();
             const atInfinity = !central || Math.abs(d.z) < .025;
             let point;
             if (central && !atInfinity) {
