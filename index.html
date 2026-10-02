@@ -665,6 +665,8 @@
             ? isPoincareProjection() ? "球边界是无限远 · 测地线会弯曲" : "球边界是无限远 · 测地线是直弦"
             : isCurvilinearProjection()
             ? isPanoramaProjection() ? "经纬角展开 · 左右边界相接" : state.projection === "gnomonic" ? "大圆映为直线 · 视场小于 180°" : state.projection === "orthographicAzimuthal" ? "球面半球 · 圆形地平线" : "视线角度映射到圆形视场"
+            : state.projection === "reversePerspective"
+            ? "近面实线较小 · 远面虚线较大"
             : isObliqueProjection()
             ? "方向由 α 控制"
                 : state.object === "cube" && state.vanishingOverlay && !hasFiniteVanishingPoints()
@@ -907,9 +909,7 @@
 
         function viewDirection() {
           if (isObliqueProjection()) return { x: 0, y: 0, z: -1 };
-          const direction = { x: Math.sin(state.yaw) * Math.cos(state.pitch), y: Math.sin(state.pitch), z: Math.cos(state.yaw) * Math.cos(state.pitch) };
-          if (state.projection === "reversePerspective") return { x: -direction.x, y: -direction.y, z: -direction.z };
-          return direction;
+          return { x: Math.sin(state.yaw) * Math.cos(state.pitch), y: Math.sin(state.pitch), z: Math.cos(state.yaw) * Math.cos(state.pitch) };
         }
 
         function drawCube() {
@@ -920,7 +920,7 @@
             const depth = face.ids.reduce((sum, i) => sum + transformed[i].z, 0) / face.ids.length;
             const visible = face.normal.x * direction.x + face.normal.y * direction.y + face.normal.z * direction.z > 0;
             return { pts, depth, visible, index };
-          }).sort((a, b) => state.projection === "reversePerspective" ? b.depth - a.depth : a.depth - b.depth);
+          }).sort((a, b) => a.depth - b.depth);
           const fills = ["rgba(83, 125, 148, .15)", "rgba(103, 146, 157, .22)", "rgba(217, 111, 75, .10)", "rgba(75, 112, 138, .19)", "rgba(105, 129, 131, .11)", "rgba(88, 131, 153, .18)"];
           ctx.save();
           for (const face of faces) {
@@ -1087,9 +1087,9 @@
               segments.push({ a, b, z: mid.z, accent: false });
             }
           }
-          segments.sort((a, b) => state.projection === "reversePerspective" ? b.z - a.z : a.z - b.z);
+          segments.sort((a, b) => a.z - b.z);
           for (const segment of segments) {
-            const front = state.projection === "reversePerspective" ? segment.z <= 0 : segment.z >= 0;
+            const front = segment.z >= 0;
             line(segment.a, segment.b, segment.accent ? (front ? "rgba(217, 111, 75, .82)" : "rgba(217, 111, 75, .24)") : front ? "rgba(47, 83, 104, .72)" : "rgba(95, 126, 139, .25)", segment.accent ? 1.55 : 1, front ? [] : [3, 3]);
           }
         }
