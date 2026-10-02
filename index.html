@@ -349,6 +349,7 @@
           orthographic: { family: "parallel", title: "正交投影", badge: "平行 · 正交", name: "正交投影", desc: "平行投影线，无近大远小", glyph: "▤", intro: "投影线彼此平行，物体尺寸不随深度改变。", formula: "x′ = s · x\ny′ = s · y", note: "s 为统一比例因子。相机沿深度方向移动，不会改变物体在画面中的尺寸。", relation: "深度只改变前后位置；相同大小的物体始终等大。", summary: "深度变化，不改变投影尺寸" },
           isometric: { family: "parallel", title: "等轴测", badge: "平行 · 等轴测", name: "等轴测投影", glyph: "◇", desc: "三个坐标轴等比例缩短", intro: "沿三个轴的缩短比例相同，常用于工程图与游戏地图。", formula: "u = s · (x − z) / √2\nv = s · (2y − x − z) / √6", note: "三条主轴投影后的长度相等；标准视向仰角约 35.264°。", relation: "标准视向下，X、Y、Z 三轴在画面中的缩短比例相等。", summary: "三轴缩短比例相等" },
           oblique: { family: "parallel", title: "斜投影", badge: "平行 · 斜投影", name: "斜投影", glyph: "▱", desc: "正面保持形状，深度斜向退后", intro: "正面平行于画面，深度轴按指定角度与比例斜向延伸。", formula: "u = s · (x + k z cos α)\nv = s · (y + k z sin α)", note: "α 控制深度轴方向，k 控制深度缩短；正面平行于像平面。", relation: "正面尺寸保持不变，深度方向以比例 k 斜向偏移。", summary: "正面等大，深度轴斜向偏移" },
+          cavalier: { family: "parallel", title: "骑士投影", badge: "平行 · 骑士投影", name: "骑士投影", glyph: "▱", desc: "45° 深度轴，深度保持原长", intro: "斜投影的经典构型：正面保留真实形状，深度轴按 45°、全长延伸。", formula: "u = s · (x + k z cos α)\nv = s · (y + k z sin α)\n标准：α = 45°，k = 1", note: "深度没有缩短；侧面和正面一样长，立体感强但深处容易显得夸张。", relation: "滑块可以偏离标准值，观察深度缩短与轴向角度如何改变图形。", summary: "骑士斜投影 · α = 45° · k = 1" },
           equidistantFisheye: { family: "curved", title: "等距鱼眼", badge: "曲线 · 等距鱼眼", name: "等距鱼眼", desc: "视线角度映射到圆形画面", glyph: "◎", intro: "把三维视线方向映射到圆形画面，离中心的距离与视线夹角成正比。", formula: "θ = atan2(ρ, d)\nr = f · θ\n(u, v) = r · (x, y) / ρ", note: "ρ=√(x²+y²)，d 为视线方向的深度。边缘对应视场角的一半。", relation: "画面不再使用平面透视除法；宽视角场景会呈现明显的弯曲与环绕感。", summary: "角度等距 · 鱼眼圆形视场" },
           gnomonic: { family: "curved", title: "心射投影", badge: "曲线 · 心射投影", name: "心射投影", desc: "球面大圆在画面上成为直线", glyph: "╱", intro: "从球心向切平面投射方向；球面上的大圆会映成直线。", formula: "θ = atan2(ρ, d)\nr = f · tan(θ)\n(u, v) = r · (x, y) / ρ", note: "只显示中心半球；当 θ 接近 90° 时，投影半径趋向无穷。", relation: "大圆与直线的对应使航线规划直观；远离中心的区域会被强烈拉伸。", summary: "球面大圆 → 直线 · 切平面投影" },
           orthographicAzimuthal: { family: "curved", title: "方位正射投影", badge: "曲线 · 方位正射", name: "方位正射投影", desc: "从无穷远处看见一个球面半球", glyph: "◉", intro: "把球面方向沿平行视线投到圆盘，形成类似从太空观察地球的外观。", formula: "θ = atan2(ρ, d)\nr = R · sin(θ)\n(u, v) = r · (x, y) / ρ", note: "只显示中心半球；地平线落在有限圆周上。", relation: "中心附近接近真实球面视图；远处被压向圆形地平线，背面不可见。", summary: "平行视线 · 半球映到圆盘" },
@@ -377,6 +378,7 @@
 
         function family() { return current().family; }
         function isCurvilinearProjection() { return family() === "curved"; }
+        function isObliqueProjection() { return state.projection === "oblique" || state.projection === "cavalier"; }
         function isCircularProjection() { return state.projection === "equidistantFisheye" || state.projection === "stereographicFisheye" || state.projection === "lambertAzimuthal" || state.projection === "gnomonic" || state.projection === "orthographicAzimuthal"; }
         function isPanoramaProjection() { return state.projection === "equirectangular" || state.projection === "mercatorPanorama"; }
         function isPoincareProjection() { return state.projection === "poincareBall"; }
@@ -447,7 +449,7 @@
           else if (isCircularProjection()) state.fisheyeFov = clamp(state.fisheyeFov, 100, 220);
           state.manualOrbit = false;
           if (key === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
-          else if (key === "oblique") { state.yaw = 0; state.pitch = 0; }
+          else if (isObliqueProjection()) { state.yaw = 0; state.pitch = 0; if (key === "cavalier") { state.obliqueAngle = 45; state.depthFactor = 1; } }
           else { state.yaw = -.72; state.pitch = .35; }
           setPressed(".family-option", "family", family());
           renderPresets();
@@ -494,7 +496,7 @@
           if (isCentralProjection()) {
             return "[ q/a     0       0       0 ]\n[   0     q       0       0 ]\n[   0     0   −(F+n)/(F−n)  −2Fn/(F−n) ]\n[   0     0      −1       0 ]\n\nq = cot(θ/2),  a = W/H";
           }
-          if (state.projection === "oblique") {
+          if (isObliqueProjection()) {
             return "[ 2S/W    0   2Sk·cosα/W   0 ]\n[   0   2S/H  2Sk·sinα/H   0 ]\n[   0     0        0        0 ]\n[   0     0        0        1 ]\n\nS = 0.185·min(W,H)·s";
           }
           return "[ 2S/W    0       0        0 ]\n[   0   2S/H     0        0 ]\n[   0     0   −2/(F−n)  −(F+n)/(F−n) ]\n[   0     0       0        1 ]\n\nS = 0.185·min(W,H)·s";
@@ -531,7 +533,7 @@
               [0, 0, -1, 0]
             ];
           }
-          if (state.projection === "oblique") {
+          if (isObliqueProjection()) {
             const base = Math.min(width, height) * .185 * state.scale;
             const angle = radians(state.obliqueAngle), k = state.depthFactor;
             return [
@@ -551,7 +553,7 @@
         }
 
         function viewMatrix() {
-          if (state.projection === "oblique") return [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
+          if (isObliqueProjection()) return [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
           const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw);
           const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
           return [
@@ -595,7 +597,7 @@
             ? `反向透视把齐次 w 改为 z_c + 2D；视口 ${size}。`
             : centerModes
             ? `中心透视使用垂直视场角 θ 与画幅比例 a。视口 ${size}。`
-            : `${state.projection === "oblique" ? "斜投影使用画布平行映射。" : "正交与等轴测共用正交 P；视向由 V 决定。"}视口 ${size}。`;
+            : `${isObliqueProjection() ? "斜投影使用画布平行映射。" : "正交与等轴测共用正交 P；视向由 V 决定。"}视口 ${size}。`;
           $("#matrixProjectionNote").textContent = customMap
             ? isHyperbolicProjection()
               ? "单位球边界对应无限远；球内半径按双曲距离非线性压缩。"
@@ -611,12 +613,12 @@
               : state.projection === "reversePerspective"
               ? `θ=${Math.round(state.fov)}°，D=${format(state.distance, 2)}；n=0.1，远裁剪面 F=2D−n。`
               : `θ=${Math.round(state.fov)}°；近/远裁剪面 n=0.1，F=100。`
-            : state.projection === "oblique"
+            : isObliqueProjection()
               ? `α=${Math.round(state.obliqueAngle)}°，k=${format(state.depthFactor, 2)}，比例 s=${format(state.scale, 2)}。`
               : `画面比例 s=${format(state.scale, 2)}；近/远裁剪面 n=0.1，F=100。`;
           $("#matrixViewNote").textContent = isHyperbolicProjection()
             ? "V 只旋转球体模型；正交显示不沿视线平移。"
-            : state.projection === "oblique"
+            : isObliqueProjection()
             ? "斜投影保持 V=I；拖动不旋转相机，深度方向由 α 控制。"
             : `相机距离 D=${format(state.distance, 2)}；视角 yaw=${format(state.yaw, 2)} rad，pitch=${format(state.pitch, 2)} rad。`;
           $("#matrixFootnote").textContent = customMap
@@ -641,7 +643,7 @@
             ? "最后一行令 w=z_c+2D，因此深度越远，w 越小、画面尺度越大。w=0 是奇异平面，远裁剪面设在它之前。"
             : centerModes
             ? "FOV 改变 P 的焦距项；相机距离与视向旋转改变 V。拖动画布会改变灭点位置，不改变投影类别。"
-            : state.projection === "oblique"
+              : isObliqueProjection()
               ? "斜投影矩阵直接把深度 z 按 k 与 α 加到画面坐标；第三行不参与 Canvas 的 2D 绘制。"
               : "正交 P 不含透视除法项；等轴测通过 V 旋转物体视向，再使用同一正交 P。";
         }
@@ -662,7 +664,7 @@
             ? isPoincareProjection() ? "球边界是无限远 · 测地线会弯曲" : "球边界是无限远 · 测地线是直弦"
             : isCurvilinearProjection()
             ? isPanoramaProjection() ? "经纬角展开 · 左右边界相接" : state.projection === "gnomonic" ? "大圆映为直线 · 视场小于 180°" : state.projection === "orthographicAzimuthal" ? "球面半球 · 圆形地平线" : "视线角度映射到圆形视场"
-            : state.projection === "oblique"
+            : isObliqueProjection()
             ? "方向由 α 控制"
                 : state.object === "cube" && state.vanishingOverlay && !hasFiniteVanishingPoints()
               ? "平行线不相交 · 灭点在无穷远"
@@ -686,7 +688,7 @@
         }
 
         function transformPoint(p) {
-          if (state.projection === "oblique") return { x: p.x, y: p.y, z: p.z };
+          if (isObliqueProjection()) return { x: p.x, y: p.y, z: p.z };
           const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw);
           const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
           const x = cy * p.x - sy * p.z;
@@ -833,7 +835,7 @@
             const amount = focal / depth;
             return { x: centerX + amount * t.x, y: centerY - amount * t.y, z: t.z, depth, amount };
           }
-          if (state.projection === "oblique") {
+          if (isObliqueProjection()) {
             const a = radians(state.obliqueAngle), k = state.depthFactor;
             const amount = Math.min(width, height) * .185 * state.scale;
             return { x: centerX + amount * (t.x + k * t.z * Math.cos(a)), y: centerY - amount * (t.y + k * t.z * Math.sin(a)), z: t.z, amount };
@@ -903,7 +905,7 @@
         ];
 
         function viewDirection() {
-          if (state.projection === "oblique") return { x: 0, y: 0, z: -1 };
+          if (isObliqueProjection()) return { x: 0, y: 0, z: -1 };
           const direction = { x: Math.sin(state.yaw) * Math.cos(state.pitch), y: Math.sin(state.pitch), z: Math.cos(state.yaw) * Math.cos(state.pitch) };
           if (state.projection === "reversePerspective") return { x: -direction.x, y: -direction.y, z: -direction.z };
           return direction;
@@ -1140,14 +1142,14 @@
           state.fov = 58; state.distance = 6.8; state.fisheyeFov = state.projection === "gnomonic" ? 120 : 180; state.scale = 1.12;
           state.obliqueAngle = 45; state.depthFactor = .58; state.manualOrbit = false;
           if (state.projection === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
-          else if (state.projection === "oblique") { state.yaw = 0; state.pitch = 0; }
+          else if (isObliqueProjection()) { state.yaw = 0; state.pitch = 0; state.obliqueAngle = 45; state.depthFactor = state.projection === "cavalier" ? 1 : .58; }
           else { state.yaw = -.72; state.pitch = .35; }
           renderParams(); render();
         });
 
         let drag = null;
         canvas.addEventListener("pointerdown", event => {
-          if (state.projection === "oblique") return;
+          if (isObliqueProjection()) return;
           drag = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
           canvas.setPointerCapture(event.pointerId);
         });
@@ -1206,7 +1208,10 @@
                 else if (isCircularProjection()) state.fisheyeFov = clamp(state.fisheyeFov, 100, 220);
                 state.manualOrbit = false;
                 if (state.projection === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
-                else if (state.projection === "oblique") { state.yaw = 0; state.pitch = 0; }
+                else if (isObliqueProjection()) {
+                  state.yaw = 0; state.pitch = 0;
+                  if (state.projection === "cavalier") { if (input.obliqueAngle === undefined) state.obliqueAngle = 45; if (input.depthFactor === undefined) state.depthFactor = 1; }
+                }
                 else { state.yaw = -.72; state.pitch = .35; }
                 setPressed(".object-option", "object", state.object);
                 setPressed(".family-option", "family", family());
