@@ -349,7 +349,8 @@
           isometric: { family: "parallel", title: "等轴测", badge: "平行 · 等轴测", name: "等轴测投影", glyph: "◇", desc: "三个坐标轴等比例缩短", intro: "沿三个轴的缩短比例相同，常用于工程图与游戏地图。", formula: "u = s · (x − z) / √2\nv = s · (2y − x − z) / √6", note: "三条主轴投影后的长度相等；标准视向仰角约 35.264°。", relation: "标准视向下，X、Y、Z 三轴在画面中的缩短比例相等。", summary: "三轴缩短比例相等" },
           oblique: { family: "parallel", title: "斜投影", badge: "平行 · 斜投影", name: "斜投影", glyph: "▱", desc: "正面保持形状，深度斜向退后", intro: "正面平行于画面，深度轴按指定角度与比例斜向延伸。", formula: "u = s · (x + k z cos α)\nv = s · (y + k z sin α)", note: "α 控制深度轴方向，k 控制深度缩短；正面平行于像平面。", relation: "正面尺寸保持不变，深度方向以比例 k 斜向偏移。", summary: "正面等大，深度轴斜向偏移" },
           equidistantFisheye: { family: "curved", title: "等距鱼眼", badge: "曲线 · 等距鱼眼", name: "等距鱼眼", desc: "视线角度映射到圆形画面", glyph: "◎", intro: "把三维视线方向映射到圆形画面，离中心的距离与视线夹角成正比。", formula: "θ = atan2(ρ, d)\nr = f · θ\n(u, v) = r · (x, y) / ρ", note: "ρ=√(x²+y²)，d 为视线方向的深度。边缘对应视场角的一半。", relation: "画面不再使用平面透视除法；宽视角场景会呈现明显的弯曲与环绕感。", summary: "角度等距 · 鱼眼圆形视场" },
-          stereographicFisheye: { family: "curved", title: "立体鱼眼", badge: "曲线 · 立体鱼眼", name: "立体鱼眼", desc: "保角投影，边缘扩张更强", glyph: "◉", intro: "用立体投影把视线方向映射到圆面，局部角度保持不变，边缘比等距鱼眼更扩张。", formula: "θ = atan2(ρ, d)\nr = 2f · tan(θ/2)\n(u, v) = r · (x, y) / ρ", note: "f 按视场角缩放，使 θ=FOV/2 落在圆形视场边缘。", relation: "中心附近与等距鱼眼相似；越靠近边缘，立体投影的径向拉伸越明显。", summary: "保角立体投影 · 边缘径向扩张" }
+          stereographicFisheye: { family: "curved", title: "立体鱼眼", badge: "曲线 · 立体鱼眼", name: "立体鱼眼", desc: "保角投影，边缘扩张更强", glyph: "◉", intro: "用立体投影把视线方向映射到圆面，局部角度保持不变，边缘比等距鱼眼更扩张。", formula: "θ = atan2(ρ, d)\nr = 2f · tan(θ/2)\n(u, v) = r · (x, y) / ρ", note: "f 按视场角缩放，使 θ=FOV/2 落在圆形视场边缘。", relation: "中心附近与等距鱼眼相似；越靠近边缘，立体投影的径向拉伸越明显。", summary: "保角立体投影 · 边缘径向扩张" },
+          equirectangular: { family: "curved", title: "等距柱面全景", badge: "曲线 · 柱面全景", name: "等距柱面全景", desc: "经纬角展开为 360°×180°", glyph: "▥", intro: "把三维方向转换成经度与纬度，再展开为横向全景图。", formula: "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − φ/π)\nd = D − z", note: "水平覆盖 360°，垂直覆盖 180°；左右边缘代表同一条经线。", relation: "水平方向按经度线性展开，靠近上下极点时形状会被明显拉伸。", summary: "经纬角展开 · 360°×180° 全景" }
         };
         const state = {
           object: "cube", projection: "perspective", fov: 58, distance: 6.8, fisheyeFov: 180,
@@ -369,6 +370,7 @@
 
         function family() { return current().family; }
         function isCurvilinearProjection() { return family() === "curved"; }
+        function isCircularFisheye() { return state.projection === "equidistantFisheye" || state.projection === "stereographicFisheye"; }
         function setPressed(selector, key, value) {
           $$(selector).forEach(button => button.setAttribute("aria-pressed", String(button.dataset[key] === value)));
         }
@@ -396,6 +398,8 @@
             html += sliderRow("distance", "相机距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
           } else if (key === "equidistantFisheye" || key === "stereographicFisheye") {
             html += sliderRow("fisheyeFov", "鱼眼视场角", state.fisheyeFov, 100, 220, 1, "°", "100°", "220°");
+            html += sliderRow("distance", "视点距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
+          } else if (key === "equirectangular") {
             html += sliderRow("distance", "视点距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
           } else if (key === "orthographic") {
             html += sliderRow("scale", "画面比例 s", state.scale, .65, 1.65, .01, "×", "缩小", "放大");
@@ -447,6 +451,7 @@
 
         function symbolicProjectionMatrix() {
           if (isCurvilinearProjection()) {
+            if (state.projection === "equirectangular") return "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − φ/π)\nd = D − z";
             return state.projection === "stereographicFisheye"
               ? "θ = atan2(ρ, d)\nr = 2f · tan(θ/2)\nu = r · x/ρ,  v = −r · y/ρ\nρ = √(x² + y²),  d = D − z"
               : "θ = atan2(ρ, d)\nr = f · θ\nu = r · x/ρ,  v = −r · y/ρ\nρ = √(x² + y²),  d = D − z";
@@ -535,7 +540,9 @@
           $("#matrixProjectionHeading").textContent = isCurvilinearProjection() ? "当前映射参数" : "当前数值 P";
           $("#matrixSymbolic").textContent = symbolicProjectionMatrix();
           $("#matrixProjection").textContent = isCurvilinearProjection()
-            ? `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nf = ${format(state.projection === "stereographicFisheye" ? Math.min(width, height) * .43 / (2 * Math.tan(radians(state.fisheyeFov / 4))) : Math.min(width, height) * .43 / radians(state.fisheyeFov / 2), 2)} px`
+            ? state.projection === "equirectangular"
+              ? "水平范围 = 360°\n垂直范围 = 180°\n边缘经度 = ±180°"
+              : `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nf = ${format(state.projection === "stereographicFisheye" ? Math.min(width, height) * .43 / (2 * Math.tan(radians(state.fisheyeFov / 4))) : Math.min(width, height) * .43 / radians(state.fisheyeFov / 2), 2)} px`
             : matrixText(projectionMatrix());
           $("#matrixView").textContent = matrixText(viewMatrix());
           $("#matrixSymbolicNote").textContent = isCurvilinearProjection()
@@ -548,7 +555,7 @@
             ? `中心透视使用垂直视场角 θ 与画幅比例 a。视口 ${size}。`
             : `${state.projection === "oblique" ? "斜投影使用画布平行映射。" : "正交与等轴测共用正交 P；视向由 V 决定。"}视口 ${size}。`;
           $("#matrixProjectionNote").textContent = isCurvilinearProjection()
-            ? "f 将最大视线夹角映射到圆形视场边缘。"
+            ? state.projection === "equirectangular" ? "完整环绕一周，并覆盖从北极到南极的视线方向。" : "f 将最大视线夹角映射到圆形视场边缘。"
             : centerModes
             ? state.projection === "weakPerspective"
               ? `θ=${Math.round(state.fov)}°，D=${format(state.distance, 2)}；整件物体共用比例 f/D。`
@@ -562,7 +569,9 @@
             ? "斜投影保持 V=I；拖动不旋转相机，深度方向由 α 控制。"
             : `相机距离 D=${format(state.distance, 2)}；视角 yaw=${format(state.yaw, 2)} rad，pitch=${format(state.pitch, 2)} rad。`;
           $("#matrixFootnote").textContent = isCurvilinearProjection()
-            ? "鱼眼根据 atan2(ρ,d) 计算每条视线的角度，再转为画面半径；常规 4×4 矩阵无法表达这一步非线性映射。"
+            ? state.projection === "equirectangular"
+              ? "柱面全景把每条视线转换为经纬角后展开；左右边界相接，接缝处的线段会绕回另一侧。这个角度映射没有单一 4×4 投影矩阵。"
+              : "鱼眼根据 atan2(ρ,d) 计算每条视线的角度，再转为画面半径；常规 4×4 矩阵无法表达这一步非线性映射。"
             : state.projection === "weakPerspective"
             ? "弱透视移除了逐点的透视除法，P 的 x/y 比例项含 f/D；相机距离只改变整件物体的统一缩放。"
             : state.projection === "reversePerspective"
@@ -587,7 +596,7 @@
           $("#vanishingControl").hidden = state.object !== "cube" || isCurvilinearProjection();
           $("#vanishingToggle").checked = state.vanishingOverlay;
           $("#stageHint").textContent = isCurvilinearProjection()
-            ? "视线角度映射到圆形视场"
+            ? state.projection === "equirectangular" ? "经纬角展开 · 左右边界相接" : "视线角度映射到圆形视场"
             : state.projection === "oblique"
             ? "方向由 α 控制"
                 : state.object === "cube" && state.vanishingOverlay && !hasFiniteVanishingPoints()
@@ -599,6 +608,7 @@
           if (state.projection === "perspective") summary = `FOV ${Math.round(state.fov)}°　·　D ${format(state.distance)}`;
           else if (state.projection === "reversePerspective") summary = `FOV ${Math.round(state.fov)}°　·　D ${format(state.distance)}　·　远大近小`;
           else if (state.projection === "weakPerspective") summary = `FOV ${Math.round(state.fov)}°　·　平均深度 ${format(state.distance)}`;
+          else if (state.projection === "equirectangular") summary = "全景　·　360° × 180°";
           else if (isCurvilinearProjection()) summary = `${state.projection === "stereographicFisheye" ? "立体投影" : "等距投影"}　·　FOV ${Math.round(state.fisheyeFov)}°`;
           else if (state.projection === "orthographic") summary = `比例 ${format(state.scale, 2)}×　·　平行视线`;
           else if (state.projection === "isometric") summary = `标准仰角 35.264°　·　比例 ${format(state.scale, 2)}×${state.manualOrbit ? "　·　视向已调整" : ""}`;
@@ -624,10 +634,24 @@
             const a = points[i], b = points[(i + 1) % points.length];
             for (let step = 0; step < steps; step++) {
               const t = step / steps;
-              result.push(project({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t }));
+              const point = project({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
+              if (state.projection === "equirectangular" && result.length) {
+                const previousX = result[result.length - 1].x;
+                while (point.x - previousX > width / 2) point.x -= width;
+                while (point.x - previousX < -width / 2) point.x += width;
+              }
+              result.push(point);
             }
           }
-          if (!closed && points.length) result.push(project(points[points.length - 1]));
+          if (!closed && points.length) {
+            const point = project(points[points.length - 1]);
+            if (state.projection === "equirectangular" && result.length) {
+              const previousX = result[result.length - 1].x;
+              while (point.x - previousX > width / 2) point.x -= width;
+              while (point.x - previousX < -width / 2) point.x += width;
+            }
+            result.push(point);
+          }
           return result;
         }
 
@@ -649,6 +673,12 @@
             return { x: centerX + amount * t.x, y: centerY - amount * t.y, z: t.z, depth, amount };
           }
           if (isCurvilinearProjection()) {
+            if (state.projection === "equirectangular") {
+              const depth = state.distance - t.z;
+              const longitude = Math.atan2(t.x, depth);
+              const latitude = Math.atan2(t.y, Math.hypot(t.x, depth));
+              return { x: width * (.5 + longitude / (2 * Math.PI)), y: height * (.5 - latitude / Math.PI), z: t.z, depth };
+            }
             const depth = state.distance - t.z;
             const rho = Math.hypot(t.x, t.y);
             const theta = Math.atan2(rho, depth);
@@ -676,9 +706,14 @@
         function line(a, b, color, lineWidth = 1, dash = []) {
           const path = projectedPath([a, b]);
           if (path.length < 2 || !path.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))) return;
-          ctx.beginPath(); ctx.setLineDash(dash); ctx.moveTo(path[0].x, path[0].y);
-          path.slice(1).forEach(point => ctx.lineTo(point.x, point.y));
-          ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.stroke(); ctx.setLineDash([]);
+          const shifts = state.projection === "equirectangular" ? [-width, 0, width] : [0];
+          ctx.setLineDash(dash); ctx.strokeStyle = color; ctx.lineWidth = lineWidth;
+          for (const shift of shifts) {
+            ctx.beginPath(); ctx.moveTo(path[0].x + shift, path[0].y);
+            path.slice(1).forEach(point => ctx.lineTo(point.x + shift, point.y));
+            ctx.stroke();
+          }
+          ctx.setLineDash([]);
         }
 
         function drawGrid() {
@@ -748,8 +783,11 @@
           const fills = ["rgba(83, 125, 148, .15)", "rgba(103, 146, 157, .22)", "rgba(217, 111, 75, .10)", "rgba(75, 112, 138, .19)", "rgba(105, 129, 131, .11)", "rgba(88, 131, 153, .18)"];
           ctx.save();
           for (const face of faces) {
-            ctx.beginPath(); face.pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath();
-            ctx.fillStyle = fills[face.index]; ctx.fill();
+            const shifts = state.projection === "equirectangular" ? [-width, 0, width] : [0];
+            for (const shift of shifts) {
+              ctx.beginPath(); face.pts.forEach((p, i) => i ? ctx.lineTo(p.x + shift, p.y) : ctx.moveTo(p.x + shift, p.y)); ctx.closePath();
+              ctx.fillStyle = fills[face.index]; ctx.fill();
+            }
           }
           for (const [a, b] of cubeEdges) {
             const va = cubeVertices[a], vb = cubeVertices[b];
@@ -849,8 +887,11 @@
             { x: -1.45, y: 0, z: -1.45 }, { x: 1.45, y: 0, z: -1.45 },
             { x: 1.45, y: 0, z: 1.45 }, { x: -1.45, y: 0, z: 1.45 }
           ], true);
-          ctx.beginPath(); points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath();
-          ctx.fillStyle = "rgba(82, 129, 151, .16)"; ctx.fill(); ctx.strokeStyle = "#31546b"; ctx.lineWidth = 2; ctx.stroke();
+          const shifts = state.projection === "equirectangular" ? [-width, 0, width] : [0];
+          for (const shift of shifts) {
+            ctx.beginPath(); points.forEach((p, i) => i ? ctx.lineTo(p.x + shift, p.y) : ctx.moveTo(p.x + shift, p.y)); ctx.closePath();
+            ctx.fillStyle = "rgba(82, 129, 151, .16)"; ctx.fill(); ctx.strokeStyle = "#31546b"; ctx.lineWidth = 2; ctx.stroke();
+          }
           const c = project({ x: 0, y: 0, z: 0 });
           ctx.beginPath(); ctx.arc(c.x, c.y, 3, 0, Math.PI * 2); ctx.fillStyle = "#d96f4b"; ctx.fill();
           line({ x: -1.45, y: 0, z: 0 }, { x: 1.45, y: 0, z: 0 }, "rgba(49, 84, 107, .5)", 1, [4, 4]);
@@ -872,10 +913,12 @@
               ? edgeRadius * Math.tan(sphereTheta / 2) / Math.tan(thetaMax / 2)
               : edgeRadius * sphereTheta / thetaMax
             : isCentralProjection() ? center.amount * 1.24 : Math.min(width, height) * .185 * state.scale * 1.24;
-          const gradient = ctx.createRadialGradient(center.x - radius * .36, center.y - radius * .45, radius * .05, center.x, center.y, radius * 1.05);
-          gradient.addColorStop(0, "rgba(179, 202, 204, .55)"); gradient.addColorStop(.72, "rgba(104, 151, 164, .19)"); gradient.addColorStop(1, "rgba(74, 117, 139, .08)");
-          ctx.beginPath(); ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); ctx.fillStyle = gradient; ctx.fill();
-          ctx.beginPath(); ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); ctx.strokeStyle = "rgba(49, 84, 107, .65)"; ctx.lineWidth = 1.4; ctx.stroke();
+          if (state.projection !== "equirectangular") {
+            const gradient = ctx.createRadialGradient(center.x - radius * .36, center.y - radius * .45, radius * .05, center.x, center.y, radius * 1.05);
+            gradient.addColorStop(0, "rgba(179, 202, 204, .55)"); gradient.addColorStop(.72, "rgba(104, 151, 164, .19)"); gradient.addColorStop(1, "rgba(74, 117, 139, .08)");
+            ctx.beginPath(); ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); ctx.fillStyle = gradient; ctx.fill();
+            ctx.beginPath(); ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); ctx.strokeStyle = "rgba(49, 84, 107, .65)"; ctx.lineWidth = 1.4; ctx.stroke();
+          }
           const segments = [];
           const divisions = 44;
           for (const lat of [-60, -30, 0, 30, 60]) {
@@ -905,7 +948,7 @@
 
         function draw() {
           ctx.clearRect(0, 0, width, height);
-          const fisheye = isCurvilinearProjection();
+          const fisheye = isCircularFisheye();
           if (fisheye) {
             ctx.save();
             ctx.beginPath(); ctx.arc(width * .5, height * .5, Math.min(width, height) * .43, 0, Math.PI * 2); ctx.clip();
