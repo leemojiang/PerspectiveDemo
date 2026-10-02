@@ -282,7 +282,7 @@
           <div class="viewport-footer">
             <div class="viewport-readout"><span class="readout-pin"></span><span id="relationSummary">深度增加，像的尺度按 1 / z 缩小</span></div>
             <label class="vanishing-control" id="vanishingControl" hidden><input id="vanishingToggle" type="checkbox" checked><span>灭点与延长线</span></label>
-            <label class="vanishing-control" id="occlusionControl" hidden><input id="occlusionToggle" type="checkbox"><span>彩色面遮挡</span></label>
+            <label class="vanishing-control" id="occlusionControl" hidden><input id="occlusionToggle" type="checkbox"><span id="occlusionLabel">彩色面遮挡</span></label>
             <span class="viewport-value" id="parameterSummary">FOV 58°　·　D 6.8</span>
           </div>
         </section>
@@ -345,7 +345,7 @@
         const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
         const presets = {
           perspective: { family: "central", title: "中心透视", badge: "中心 · 透视", name: "透视投影", desc: "视线汇聚于视点", glyph: "◉", intro: "视线汇聚于有限距离的视点，远处物体看起来更小。", formula: "x′ = f · x / z\ny′ = f · y / z\nf = H / 2 tan(θ / 2)", note: "θ 为垂直视场角，f 为焦距，z 为相机空间深度。", relation: "物体离视点越远，像的线性尺寸越小；深度加倍时，尺寸约减半。", summary: "深度增加，像的尺度按 1 / z 缩小" },
-          reversePerspective: { family: "central", title: "反向透视", badge: "中心 · 反向透视", name: "反向透视", desc: "近处缩小，远处放大", glyph: "↗", intro: "把虚拟投影中心放到场景远侧，投影线向外张开，因此近处较小、远处较大。", formula: "x′ = f · x / (D + z)\ny′ = f · y / (D + z)\nf = H / 2 tan(θ / 2)", note: "z 是相机视向深度，正值朝向观察者；D 是参考距离，需保持 D + z > 0。", relation: "离远侧虚拟投影中心越近，放大越强；接近 w = 0 的平面时，尺度会急剧增加。", summary: "近处缩小，远处放大 · 投影线向外张开" },
+          reversePerspective: { family: "central", title: "反向透视", badge: "中心 · 反向透视", name: "反向透视", desc: "近处缩小，远处放大", glyph: "↗", intro: "保持观察方向不变，把虚拟投影中心放到场景远侧，投影线向外张开，因此近处较小、远处较大。", formula: "x′ = f · x / (D + z)\ny′ = f · y / (D + z)\nf = H / 2 tan(θ / 2)", note: "z 是相机视向深度，正值朝向观察者；D 是参考距离，需保持 D + z > 0。", relation: "离远侧虚拟投影中心越近，放大越强；接近 w = 0 的平面时，尺度会急剧增加。", summary: "近处缩小，远处放大 · 投影线向外张开" },
           weakPerspective: { family: "central", title: "弱透视", badge: "中心 · 弱透视", name: "弱透视", desc: "用平均深度统一缩放", glyph: "≈", intro: "把物体各点的深度近似为平均深度 D，因此每个点使用相同缩放。", formula: "x′ ≈ (f / D) · x\ny′ ≈ (f / D) · y\nf = H / 2 tan(θ / 2)", note: "这是透视投影在物体深度变化较小时的近似，也称缩放正交投影。", relation: "整件物体随平均距离缩放；物体内部的近远部分几乎等大。", summary: "保留整体缩放，压低物体内部的近大远小" },
           orthographic: { family: "parallel", title: "正交投影", badge: "平行 · 正交", name: "正交投影", desc: "平行投影线，无近大远小", glyph: "▤", intro: "投影线彼此平行，物体尺寸不随深度改变。", formula: "x′ = s · x\ny′ = s · y", note: "s 为统一比例因子。相机沿深度方向移动，不会改变物体在画面中的尺寸。", relation: "深度只改变前后位置；相同大小的物体始终等大。", summary: "深度变化，不改变投影尺寸" },
           isometric: { family: "parallel", title: "等轴测", badge: "平行 · 等轴测", name: "等轴测投影", glyph: "◇", desc: "三个坐标轴等比例缩短", intro: "沿三个轴的缩短比例相同，常用于工程图与游戏地图。", formula: "u = s · (x − z) / √2\nv = s · (2y − x − z) / √6", note: "三条主轴投影后的长度相等；标准视向仰角约 35.264°。", relation: "标准视向下，X、Y、Z 三轴在画面中的缩短比例相等。", summary: "三轴缩短比例相等" },
@@ -668,14 +668,15 @@
           $("#vanishingToggle").checked = state.vanishingOverlay;
           $("#occlusionControl").hidden = state.object !== "cube" || isCurvilinearProjection() || isHyperbolicProjection();
           $("#occlusionToggle").checked = state.cubeOcclusion;
+          $("#occlusionLabel").textContent = state.projection === "reversePerspective" ? "前面实色 · 背面透显" : "彩色面遮挡";
           $("#stageHint").textContent = isHyperbolicProjection()
             ? isPoincareProjection() ? "球边界是无限远 · 测地线会弯曲" : "球边界是无限远 · 测地线是直弦"
             : isCurvilinearProjection()
             ? isPanoramaProjection() ? "经纬角展开 · 左右边界相接" : state.projection === "gnomonic" ? "大圆映为直线 · 视场小于 180°" : state.projection === "orthographicAzimuthal" ? "球面半球 · 圆形地平线" : "视线角度映射到圆形视场"
             : state.object === "cube" && state.cubeOcclusion
-            ? state.projection === "reversePerspective" ? "背侧投影中心 · 彩色遮挡 · 拖动看侧面" : "彩色实面 · 背面边线隐藏"
+            ? state.projection === "reversePerspective" ? "原视点侧保持在前 · 背面半透明透显" : "彩色实面 · 背面边线隐藏"
             : state.projection === "reversePerspective"
-            ? "近面实线较小 · 远面虚线较大"
+            ? "视点侧小面 · 背面大面 · 视向不变"
             : isObliqueProjection()
             ? "方向由 α 控制"
                 : state.object === "cube" && state.vanishingOverlay && !hasFiniteVanishingPoints()
@@ -918,16 +919,15 @@
 
         function viewDirection() {
           if (isObliqueProjection()) return { x: 0, y: 0, z: -1 };
-          const direction = { x: Math.sin(state.yaw) * Math.cos(state.pitch), y: Math.sin(state.pitch), z: Math.cos(state.yaw) * Math.cos(state.pitch) };
-          if (state.projection === "reversePerspective" && hasOpaqueCubeMode()) return { x: -direction.x, y: -direction.y, z: -direction.z };
-          return direction;
+          return { x: Math.sin(state.yaw) * Math.cos(state.pitch), y: Math.sin(state.pitch), z: Math.cos(state.yaw) * Math.cos(state.pitch) };
         }
 
         function drawCube() {
           const transformed = cubeVertices.map(transformPoint);
           const direction = viewDirection();
           const opaque = hasOpaqueCubeMode();
-          const reversePainterOrder = isObliqueProjection() || (opaque && state.projection === "reversePerspective");
+          const reverseSeeThrough = opaque && state.projection === "reversePerspective";
+          const reversePainterOrder = isObliqueProjection();
           const faces = cubeFaces.map((face, index) => {
             const pts = projectedPath(face.ids.map(i => cubeVertices[i]), true);
             const depth = face.ids.reduce((sum, i) => sum + transformed[i].z, 0) / face.ids.length;
@@ -936,23 +936,44 @@
           }).sort((a, b) => reversePainterOrder ? b.depth - a.depth : a.depth - b.depth);
           const fills = ["#4F7897", "#D58C5D", "#6F9E88", "#A67AA7", "#C1A34F", "#4D9992"];
           ctx.save();
-          for (const face of faces) {
-            if (opaque && !face.visible) continue;
+          const drawFace = (face, alpha) => {
             const shifts = isPanoramaProjection() ? [-width, 0, width] : [0];
             for (const shift of shifts) {
               ctx.beginPath(); face.pts.forEach((p, i) => i ? ctx.lineTo(p.x + shift, p.y) : ctx.moveTo(p.x + shift, p.y)); ctx.closePath();
-              ctx.globalAlpha = opaque ? 1 : .16;
+              ctx.globalAlpha = alpha;
               ctx.fillStyle = fills[face.index]; ctx.fill();
+            }
+          };
+          const drawCubeEdge = (a, b, visible, ghost = false) => {
+            const va = cubeVertices[a], vb = cubeVertices[b];
+            line(va, vb, visible ? "#31546b" : ghost ? "rgba(80, 104, 119, .72)" : "#9baeb7", visible ? 1.8 : 1.1, visible ? [] : [4, 4]);
+          };
+          if (reverseSeeThrough) {
+            for (const face of faces) if (!face.visible) drawFace(face, .32);
+            for (const [a, b] of cubeEdges) {
+              const adjacent = cubeFaces.filter(face => face.ids.includes(a) && face.ids.includes(b));
+              const visible = adjacent.some(face => face.normal.x * direction.x + face.normal.y * direction.y + face.normal.z * direction.z > 0);
+              if (!visible) drawCubeEdge(a, b, false, true);
+            }
+            for (const face of faces) if (face.visible) drawFace(face, 1);
+            for (const [a, b] of cubeEdges) {
+              const adjacent = cubeFaces.filter(face => face.ids.includes(a) && face.ids.includes(b));
+              const visible = adjacent.some(face => face.normal.x * direction.x + face.normal.y * direction.y + face.normal.z * direction.z > 0);
+              if (visible) drawCubeEdge(a, b, true);
+            }
+          } else {
+            for (const face of faces) {
+              if (opaque && !face.visible) continue;
+              drawFace(face, opaque ? 1 : .16);
+            }
+            for (const [a, b] of cubeEdges) {
+              const adjacent = cubeFaces.filter(face => face.ids.includes(a) && face.ids.includes(b));
+              const visible = adjacent.some(face => face.normal.x * direction.x + face.normal.y * direction.y + face.normal.z * direction.z > 0);
+              if (opaque && !visible) continue;
+              drawCubeEdge(a, b, visible);
             }
           }
           ctx.globalAlpha = 1;
-          for (const [a, b] of cubeEdges) {
-            const adjacent = cubeFaces.filter(face => face.ids.includes(a) && face.ids.includes(b));
-            const visible = adjacent.some(face => face.normal.x * direction.x + face.normal.y * direction.y + face.normal.z * direction.z > 0);
-            if (opaque && !visible) continue;
-            const va = cubeVertices[a], vb = cubeVertices[b];
-            line(va, vb, visible ? "#31546b" : "#9baeb7", visible ? 1.8 : 1.1, visible ? [] : [4, 4]);
-          }
           ctx.restore();
         }
 
