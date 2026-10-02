@@ -362,9 +362,10 @@
           poincareBall: { family: "nonEuclidean", title: "Poincaré 双曲球", badge: "非欧 · Poincaré 球", name: "Poincaré 双曲球", desc: "无穷空间压入单位球，测地线弯曲", glyph: "◌", intro: "把负曲率的双曲空间表示在单位球内；越靠近球边界，双曲距离增长越快。", formula: "ρ = tanh(r/2)\np = (ρ/r) · x\nds² = 4 · |dp|² / (1 − |p|²)²", note: "曲率 K=−1。球内直径或与边界正交的圆弧代表双曲测地线。", relation: "边界是无限远；测地线在球内通常表现为弯曲圆弧，角度在该模型中保持不变。", summary: "双曲空间 · K = −1 · 边界在无穷远" },
           kleinBall: { family: "nonEuclidean", title: "Klein 双曲球", badge: "非欧 · Klein 球", name: "Klein 双曲球", desc: "双曲测地线变为直弦，角度会变形", glyph: "◇", intro: "使用另一种单位球模型表示同一负曲率空间；双曲测地线在球内变成直线弦。", formula: "ρ = tanh(r)\np = (ρ/r) · x\nds² = |dp|²/(1−|p|²)\n      + (p·dp)²/(1−|p|²)²", note: "曲率 K=−1。球边界仍代表无限远；Klein 模型不保持角度。", relation: "与 Poincaré 球有相同的双曲距离结构，但弦是直线，角度与形状会产生更强变形。", summary: "双曲空间 · 直弦测地线 · 角度变形" }
         };
+        const defaultView = Object.freeze({ yaw: -.72, pitch: .35 });
         const state = {
           object: "cube", projection: "perspective", fov: 58, distance: 6.8, fisheyeFov: 180,
-          scale: 1.12, obliqueAngle: 45, depthFactor: .58, yaw: -.72, pitch: .35, manualOrbit: false, vanishingOverlay: true, cubeOcclusion: false
+          scale: 1.12, obliqueAngle: 45, depthFactor: .58, yaw: defaultView.yaw, pitch: defaultView.pitch, manualOrbit: false, vanishingOverlay: true, cubeOcclusion: false
         };
         const objectLabels = { cube: "立方体", square: "正方形", axes: "坐标轴", sphere: "球体" };
         const objectCodes = { cube: "CUBE", square: "SQUARE", axes: "AXES", sphere: "SPHERE" };
@@ -379,6 +380,7 @@
         const current = () => presets[state.projection];
 
         function family() { return current().family; }
+        function setDefaultView() { state.yaw = defaultView.yaw; state.pitch = defaultView.pitch; }
         function isCurvilinearProjection() { return family() === "curved"; }
         function isObliqueProjection() { return state.projection === "oblique" || state.projection === "cavalier" || state.projection === "cabinet"; }
         function isCircularProjection() { return state.projection === "equidistantFisheye" || state.projection === "stereographicFisheye" || state.projection === "lambertAzimuthal" || state.projection === "gnomonic" || state.projection === "orthographicAzimuthal"; }
@@ -446,15 +448,15 @@
         }
 
         function selectProjection(key) {
+          const keepCentralView = family() === "central" && presets[key].family === "central";
           state.projection = key;
           if (key === "gnomonic") state.fisheyeFov = state.fisheyeFov > 170 ? 120 : clamp(state.fisheyeFov, 30, 170);
           else if (key === "orthographicAzimuthal") state.fisheyeFov = clamp(state.fisheyeFov, 30, 180);
           else if (isCircularProjection()) state.fisheyeFov = clamp(state.fisheyeFov, 100, 220);
           state.manualOrbit = false;
           if (key === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
-          else if (key === "reversePerspective") { state.yaw = 0; state.pitch = 0; }
           else if (isObliqueProjection()) { state.yaw = 0; state.pitch = 0; if (key === "cavalier" || key === "cabinet") { state.obliqueAngle = 45; state.depthFactor = key === "cavalier" ? 1 : .5; } }
-          else { state.yaw = -.72; state.pitch = .35; }
+          else if (!keepCentralView) setDefaultView();
           setPressed(".family-option", "family", family());
           renderPresets();
           renderParams();
@@ -1159,9 +1161,8 @@
           state.fov = 58; state.distance = 6.8; state.fisheyeFov = state.projection === "gnomonic" ? 120 : 180; state.scale = 1.12;
           state.obliqueAngle = 45; state.depthFactor = .58; state.manualOrbit = false; state.cubeOcclusion = false;
           if (state.projection === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
-          else if (state.projection === "reversePerspective") { state.yaw = 0; state.pitch = 0; }
           else if (isObliqueProjection()) { state.yaw = 0; state.pitch = 0; state.obliqueAngle = 45; state.depthFactor = state.projection === "cavalier" ? 1 : state.projection === "cabinet" ? .5 : .58; }
-          else { state.yaw = -.72; state.pitch = .35; }
+          else setDefaultView();
           renderParams(); render();
         });
 
@@ -1216,6 +1217,7 @@
                 if (input.projection !== undefined && !Object.hasOwn(presets, input.projection)) throw new RangeError("Unknown projection.");
                 if (input.vanishingOverlay !== undefined && typeof input.vanishingOverlay !== "boolean") throw new TypeError("vanishingOverlay must be a boolean.");
                 if (input.cubeOcclusion !== undefined && typeof input.cubeOcclusion !== "boolean") throw new TypeError("cubeOcclusion must be a boolean.");
+                const keepCentralView = presets[state.projection].family === "central" && (input.projection === undefined || presets[input.projection].family === "central");
                 for (const [key, limits] of Object.entries({ fov: [24, 110], fisheyeFov: [30, 220], distance: [4, 14], scale: [.65, 1.65], obliqueAngle: [20, 70], depthFactor: [.2, 1] })) {
                   if (input[key] !== undefined && (typeof input[key] !== "number" || !Number.isFinite(input[key]) || input[key] < limits[0] || input[key] > limits[1])) throw new RangeError(`${key} is outside its supported range.`);
                 }
@@ -1229,13 +1231,12 @@
                 else if (isCircularProjection()) state.fisheyeFov = clamp(state.fisheyeFov, 100, 220);
                 state.manualOrbit = false;
                 if (state.projection === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
-                else if (state.projection === "reversePerspective") { state.yaw = 0; state.pitch = 0; }
                 else if (isObliqueProjection()) {
                   state.yaw = 0; state.pitch = 0;
                   if (state.projection === "cavalier") { if (input.obliqueAngle === undefined) state.obliqueAngle = 45; if (input.depthFactor === undefined) state.depthFactor = 1; }
                   else if (state.projection === "cabinet") { if (input.obliqueAngle === undefined) state.obliqueAngle = 45; if (input.depthFactor === undefined) state.depthFactor = .5; }
                 }
-                else { state.yaw = -.72; state.pitch = .35; }
+                else if (!keepCentralView) setDefaultView();
                 setPressed(".object-option", "object", state.object);
                 setPressed(".family-option", "family", family());
                 renderPresets(); renderParams(); render();
