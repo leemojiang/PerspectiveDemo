@@ -77,7 +77,7 @@
       .object-icon { width: 30px; height: 30px; display: grid; place-items: center; color: var(--navy); flex: 0 0 auto; }
       .object-label { font-size: 13px; font-weight: 560; }
 
-      .family-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 3px; border: 1px solid #e7e6e0; border-radius: 8px; background: #f7f6f2; }
+      .family-switch { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 3px; border: 1px solid #e7e6e0; border-radius: 8px; background: #f7f6f2; }
       .family-option { padding: 8px 4px; border: 0; border-radius: 6px; background: transparent; color: #748087; font-size: 12px; cursor: pointer; }
       .family-option[aria-pressed="true"] { background: #fff; box-shadow: 0 1px 3px rgba(35, 50, 58, .11); color: var(--navy); font-weight: 650; }
       .preset-list { display: grid; gap: 7px; }
@@ -259,6 +259,7 @@
             <button class="family-option" data-family="central" aria-pressed="true">中心投影</button>
             <button class="family-option" data-family="parallel" aria-pressed="false">平行投影</button>
             <button class="family-option" data-family="curved" aria-pressed="false">曲线投影</button>
+            <button class="family-option" data-family="nonEuclidean" aria-pressed="false">非欧几何</button>
           </div>
           <div class="preset-list" id="presetList" role="group" aria-label="投影方式"></div>
 
@@ -350,7 +351,8 @@
           oblique: { family: "parallel", title: "斜投影", badge: "平行 · 斜投影", name: "斜投影", glyph: "▱", desc: "正面保持形状，深度斜向退后", intro: "正面平行于画面，深度轴按指定角度与比例斜向延伸。", formula: "u = s · (x + k z cos α)\nv = s · (y + k z sin α)", note: "α 控制深度轴方向，k 控制深度缩短；正面平行于像平面。", relation: "正面尺寸保持不变，深度方向以比例 k 斜向偏移。", summary: "正面等大，深度轴斜向偏移" },
           equidistantFisheye: { family: "curved", title: "等距鱼眼", badge: "曲线 · 等距鱼眼", name: "等距鱼眼", desc: "视线角度映射到圆形画面", glyph: "◎", intro: "把三维视线方向映射到圆形画面，离中心的距离与视线夹角成正比。", formula: "θ = atan2(ρ, d)\nr = f · θ\n(u, v) = r · (x, y) / ρ", note: "ρ=√(x²+y²)，d 为视线方向的深度。边缘对应视场角的一半。", relation: "画面不再使用平面透视除法；宽视角场景会呈现明显的弯曲与环绕感。", summary: "角度等距 · 鱼眼圆形视场" },
           stereographicFisheye: { family: "curved", title: "立体鱼眼", badge: "曲线 · 立体鱼眼", name: "立体鱼眼", desc: "保角投影，边缘扩张更强", glyph: "◉", intro: "用立体投影把视线方向映射到圆面，局部角度保持不变，边缘比等距鱼眼更扩张。", formula: "θ = atan2(ρ, d)\nr = 2f · tan(θ/2)\n(u, v) = r · (x, y) / ρ", note: "f 按视场角缩放，使 θ=FOV/2 落在圆形视场边缘。", relation: "中心附近与等距鱼眼相似；越靠近边缘，立体投影的径向拉伸越明显。", summary: "保角立体投影 · 边缘径向扩张" },
-          equirectangular: { family: "curved", title: "等距柱面全景", badge: "曲线 · 柱面全景", name: "等距柱面全景", desc: "经纬角展开为 360°×180°", glyph: "▥", intro: "把三维方向转换成经度与纬度，再展开为横向全景图。", formula: "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − φ/π)\nd = D − z", note: "水平覆盖 360°，垂直覆盖 180°；左右边缘代表同一条经线。", relation: "水平方向按经度线性展开，靠近上下极点时形状会被明显拉伸。", summary: "经纬角展开 · 360°×180° 全景" }
+          equirectangular: { family: "curved", title: "等距柱面全景", badge: "曲线 · 柱面全景", name: "等距柱面全景", desc: "经纬角展开为 360°×180°", glyph: "▥", intro: "把三维方向转换成经度与纬度，再展开为横向全景图。", formula: "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − φ/π)\nd = D − z", note: "水平覆盖 360°，垂直覆盖 180°；左右边缘代表同一条经线。", relation: "水平方向按经度线性展开，靠近上下极点时形状会被明显拉伸。", summary: "经纬角展开 · 360°×180° 全景" },
+          poincareBall: { family: "nonEuclidean", title: "Poincaré 双曲球", badge: "非欧 · Poincaré 球", name: "Poincaré 双曲球", desc: "无穷空间压入单位球，测地线弯曲", glyph: "◌", intro: "把负曲率的双曲空间表示在单位球内；越靠近球边界，双曲距离增长越快。", formula: "ρ = tanh(r/2)\np = (ρ/r) · x\nds² = 4 · |dp|² / (1 − |p|²)²", note: "曲率 K=−1。球内直径或与边界正交的圆弧代表双曲测地线。", relation: "边界是无限远；测地线在球内通常表现为弯曲圆弧，角度在该模型中保持不变。", summary: "双曲空间 · K = −1 · 边界在无穷远" }
         };
         const state = {
           object: "cube", projection: "perspective", fov: 58, distance: 6.8, fisheyeFov: 180,
@@ -371,6 +373,7 @@
         function family() { return current().family; }
         function isCurvilinearProjection() { return family() === "curved"; }
         function isCircularFisheye() { return state.projection === "equidistantFisheye" || state.projection === "stereographicFisheye"; }
+        function isPoincareProjection() { return state.projection === "poincareBall"; }
         function setPressed(selector, key, value) {
           $$(selector).forEach(button => button.setAttribute("aria-pressed", String(button.dataset[key] === value)));
         }
@@ -401,6 +404,8 @@
             html += sliderRow("distance", "视点距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
           } else if (key === "equirectangular") {
             html += sliderRow("distance", "视点距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
+          } else if (key === "poincareBall") {
+            html += sliderRow("scale", "球体画面比例", state.scale, .65, 1.65, .01, "×", "缩小", "放大");
           } else if (key === "orthographic") {
             html += sliderRow("scale", "画面比例 s", state.scale, .65, 1.65, .01, "×", "缩小", "放大");
           } else if (key === "isometric") {
@@ -450,6 +455,9 @@
         }
 
         function symbolicProjectionMatrix() {
+          if (isPoincareProjection()) {
+            return "ρ = tanh(r/2)\np = ρ · x/r,  |p| < 1\nds² = 4 · |dp|² / (1 − |p|²)²\n测地线：直径或正交边界的圆弧";
+          }
           if (isCurvilinearProjection()) {
             if (state.projection === "equirectangular") return "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − φ/π)\nd = D − z";
             return state.projection === "stereographicFisheye"
@@ -528,25 +536,30 @@
           return [
             [cy, 0, -sy, 0],
             [-sp * sy, cp, -sp * cy, 0],
-            [cp * sy, sp, cp * cy, -state.distance],
+            [cp * sy, sp, cp * cy, isPoincareProjection() ? 0 : -state.distance],
             [0, 0, 0, 1]
           ];
         }
 
         function updateMatrices() {
           const centerModes = isCentralProjection();
+          const customMap = isCurvilinearProjection() || isPoincareProjection();
           const size = `${Math.round(width)} × ${Math.round(height)} px`;
-          $("#matrixSymbolicHeading").textContent = isCurvilinearProjection() ? "非线性投影公式" : "参数化投影矩阵 P";
-          $("#matrixProjectionHeading").textContent = isCurvilinearProjection() ? "当前映射参数" : "当前数值 P";
+          $("#matrixSymbolicHeading").textContent = customMap ? (isPoincareProjection() ? "双曲空间模型" : "非线性投影公式") : "参数化投影矩阵 P";
+          $("#matrixProjectionHeading").textContent = customMap ? "当前映射参数" : "当前数值 P";
           $("#matrixSymbolic").textContent = symbolicProjectionMatrix();
-          $("#matrixProjection").textContent = isCurvilinearProjection()
-            ? state.projection === "equirectangular"
+          $("#matrixProjection").textContent = customMap
+            ? isPoincareProjection()
+              ? `曲率 K = −1\n球半径 R = 1\n屏幕比例 = ${format(Math.min(width, height) * .36 * state.scale, 2)} px`
+              : state.projection === "equirectangular"
               ? "水平范围 = 360°\n垂直范围 = 180°\n边缘经度 = ±180°"
               : `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nf = ${format(state.projection === "stereographicFisheye" ? Math.min(width, height) * .43 / (2 * Math.tan(radians(state.fisheyeFov / 4))) : Math.min(width, height) * .43 / radians(state.fisheyeFov / 2), 2)} px`
             : matrixText(projectionMatrix());
           $("#matrixView").textContent = matrixText(viewMatrix());
-          $("#matrixSymbolicNote").textContent = isCurvilinearProjection()
-            ? `把视线角度映射为圆面半径；该非线性变换没有单一 4×4 投影矩阵。视口 ${size}。`
+          $("#matrixSymbolicNote").textContent = customMap
+            ? isPoincareProjection()
+              ? `先将双曲空间映射进单位球，再作正交显示；视口 ${size}。`
+              : `把视线角度映射到平面；该非线性变换没有单一 4×4 投影矩阵。视口 ${size}。`
             : state.projection === "weakPerspective"
             ? `弱透视把所有顶点深度近似为平均值 D；视口 ${size}。`
             : state.projection === "reversePerspective"
@@ -554,8 +567,10 @@
             : centerModes
             ? `中心透视使用垂直视场角 θ 与画幅比例 a。视口 ${size}。`
             : `${state.projection === "oblique" ? "斜投影使用画布平行映射。" : "正交与等轴测共用正交 P；视向由 V 决定。"}视口 ${size}。`;
-          $("#matrixProjectionNote").textContent = isCurvilinearProjection()
-            ? state.projection === "equirectangular" ? "完整环绕一周，并覆盖从北极到南极的视线方向。" : "f 将最大视线夹角映射到圆形视场边缘。"
+          $("#matrixProjectionNote").textContent = customMap
+            ? isPoincareProjection()
+              ? "单位球边界对应无限远；球内半径按双曲距离非线性压缩。"
+              : state.projection === "equirectangular" ? "完整环绕一周，并覆盖从北极到南极的视线方向。" : "f 将最大视线夹角映射到圆形视场边缘。"
             : centerModes
             ? state.projection === "weakPerspective"
               ? `θ=${Math.round(state.fov)}°，D=${format(state.distance, 2)}；整件物体共用比例 f/D。`
@@ -565,11 +580,15 @@
             : state.projection === "oblique"
               ? `α=${Math.round(state.obliqueAngle)}°，k=${format(state.depthFactor, 2)}，比例 s=${format(state.scale, 2)}。`
               : `画面比例 s=${format(state.scale, 2)}；近/远裁剪面 n=0.1，F=100。`;
-          $("#matrixViewNote").textContent = state.projection === "oblique"
+          $("#matrixViewNote").textContent = isPoincareProjection()
+            ? "V 只旋转球体模型；正交显示不沿视线平移。"
+            : state.projection === "oblique"
             ? "斜投影保持 V=I；拖动不旋转相机，深度方向由 α 控制。"
             : `相机距离 D=${format(state.distance, 2)}；视角 yaw=${format(state.yaw, 2)} rad，pitch=${format(state.pitch, 2)} rad。`;
-          $("#matrixFootnote").textContent = isCurvilinearProjection()
-            ? state.projection === "equirectangular"
+          $("#matrixFootnote").textContent = customMap
+            ? isPoincareProjection()
+              ? "这是负曲率空间的几何模型，不是普通相机投影。测地线由直径或与单位球边界正交的圆弧构成，边界本身代表无限远。"
+              : state.projection === "equirectangular"
               ? "柱面全景把每条视线转换为经纬角后展开；左右边界相接，接缝处的线段会绕回另一侧。这个角度映射没有单一 4×4 投影矩阵。"
               : "鱼眼根据 atan2(ρ,d) 计算每条视线的角度，再转为画面半径；常规 4×4 矩阵无法表达这一步非线性映射。"
             : state.projection === "weakPerspective"
@@ -593,9 +612,11 @@
           $("#relationCopy").textContent = preset.relation;
           $("#relationSummary").textContent = preset.summary;
           $("#sceneCode").textContent = objectCodes[state.object];
-          $("#vanishingControl").hidden = state.object !== "cube" || isCurvilinearProjection();
+          $("#vanishingControl").hidden = state.object !== "cube" || isCurvilinearProjection() || isPoincareProjection();
           $("#vanishingToggle").checked = state.vanishingOverlay;
-          $("#stageHint").textContent = isCurvilinearProjection()
+          $("#stageHint").textContent = isPoincareProjection()
+            ? "球边界是无限远 · 测地线会弯曲"
+            : isCurvilinearProjection()
             ? state.projection === "equirectangular" ? "经纬角展开 · 左右边界相接" : "视线角度映射到圆形视场"
             : state.projection === "oblique"
             ? "方向由 α 控制"
@@ -610,6 +631,7 @@
           else if (state.projection === "weakPerspective") summary = `FOV ${Math.round(state.fov)}°　·　平均深度 ${format(state.distance)}`;
           else if (state.projection === "equirectangular") summary = "全景　·　360° × 180°";
           else if (isCurvilinearProjection()) summary = `${state.projection === "stereographicFisheye" ? "立体投影" : "等距投影"}　·　FOV ${Math.round(state.fisheyeFov)}°`;
+          else if (isPoincareProjection()) summary = "双曲空间　·　K = −1　·　边界在无穷远";
           else if (state.projection === "orthographic") summary = `比例 ${format(state.scale, 2)}×　·　平行视线`;
           else if (state.projection === "isometric") summary = `标准仰角 35.264°　·　比例 ${format(state.scale, 2)}×${state.manualOrbit ? "　·　视向已调整" : ""}`;
           else summary = `α ${Math.round(state.obliqueAngle)}°　·　k ${format(state.depthFactor, 2)}×`;
@@ -626,12 +648,58 @@
           return { x, y: cp * p.y - sp * z0, z: sp * p.y + cp * z0 };
         }
 
+        function poincarePoint(point) {
+          const radius = Math.hypot(point.x, point.y, point.z);
+          if (radius < 1e-8) return { x: 0, y: 0, z: 0 };
+          const factor = Math.tanh(radius / 2) / radius;
+          return { x: factor * point.x, y: factor * point.y, z: factor * point.z };
+        }
+
+        function poincareGeodesicSamples(a, b, steps) {
+          const u = poincarePoint(a), v = poincarePoint(b);
+          const uu = u.x * u.x + u.y * u.y + u.z * u.z;
+          const vv = v.x * v.x + v.y * v.y + v.z * v.z;
+          const uv = u.x * v.x + u.y * v.y + u.z * v.z;
+          const determinant = uu * vv - uv * uv;
+          const interpolate = () => Array.from({ length: steps + 1 }, (_, i) => {
+            const t = i / steps;
+            return { x: u.x + (v.x - u.x) * t, y: u.y + (v.y - u.y) * t, z: u.z + (v.z - u.z) * t };
+          });
+          if (determinant < 1e-8) return interpolate();
+          const rhsU = (1 + uu) / 2, rhsV = (1 + vv) / 2;
+          const coeffU = (rhsU * vv - rhsV * uv) / determinant;
+          const coeffV = (rhsV * uu - rhsU * uv) / determinant;
+          const center = { x: coeffU * u.x + coeffV * v.x, y: coeffU * u.y + coeffV * v.y, z: coeffU * u.z + coeffV * v.z };
+          const from = { x: u.x - center.x, y: u.y - center.y, z: u.z - center.z };
+          const to = { x: v.x - center.x, y: v.y - center.y, z: v.z - center.z };
+          const radius = Math.hypot(from.x, from.y, from.z);
+          if (radius < 1e-8) return interpolate();
+          const e1 = { x: from.x / radius, y: from.y / radius, z: from.z / radius };
+          const projection = to.x * e1.x + to.y * e1.y + to.z * e1.z;
+          const perpendicular = { x: to.x - projection * e1.x, y: to.y - projection * e1.y, z: to.z - projection * e1.z };
+          const perpendicularLength = Math.hypot(perpendicular.x, perpendicular.y, perpendicular.z);
+          if (perpendicularLength < 1e-8) return interpolate();
+          const e2 = { x: perpendicular.x / perpendicularLength, y: perpendicular.y / perpendicularLength, z: perpendicular.z / perpendicularLength };
+          const angle = Math.atan2(perpendicularLength, projection);
+          return Array.from({ length: steps + 1 }, (_, i) => {
+            const theta = angle * i / steps;
+            const point = { x: center.x + radius * (Math.cos(theta) * e1.x + Math.sin(theta) * e2.x), y: center.y + radius * (Math.cos(theta) * e1.y + Math.sin(theta) * e2.y), z: center.z + radius * (Math.cos(theta) * e1.z + Math.sin(theta) * e2.z) };
+            const length = Math.hypot(point.x, point.y, point.z);
+            return length < 1 ? point : { x: point.x * .999999 / length, y: point.y * .999999 / length, z: point.z * .999999 / length };
+          });
+        }
+
         function projectedPath(points, closed = false) {
           const result = [];
           const segments = closed ? points.length : points.length - 1;
-          const steps = isCurvilinearProjection() ? 28 : 1;
+          const steps = isCurvilinearProjection() || isPoincareProjection() ? 28 : 1;
           for (let i = 0; i < segments; i++) {
             const a = points[i], b = points[(i + 1) % points.length];
+            if (isPoincareProjection()) {
+              const geodesic = poincareGeodesicSamples(a, b, steps);
+              geodesic.slice(0, -1).forEach(point => result.push(project(point, true)));
+              continue;
+            }
             for (let step = 0; step < steps; step++) {
               const t = step / steps;
               const point = project({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
@@ -643,7 +711,8 @@
               result.push(point);
             }
           }
-          if (!closed && points.length) {
+          if (!closed && points.length && isPoincareProjection()) result.push(project(poincarePoint(points[points.length - 1]), true));
+          else if (!closed && points.length) {
             const point = project(points[points.length - 1]);
             if (state.projection === "equirectangular" && result.length) {
               const previousX = result[result.length - 1].x;
@@ -655,11 +724,16 @@
           return result;
         }
 
-        function project(p) {
-          const t = transformPoint(p);
+        function project(p, modelSpace = false) {
+          const source = isPoincareProjection() && !modelSpace ? poincarePoint(p) : p;
+          const t = transformPoint(source);
           const centerX = width * .5;
           const centerY = height * .5;
           const base = Math.min(width, height) * .185 * state.scale;
+          if (isPoincareProjection()) {
+            const ballScale = Math.min(width, height) * .36 * state.scale;
+            return { x: centerX + ballScale * t.x, y: centerY - ballScale * t.y, z: t.z, depth: t.z, amount: ballScale };
+          }
           if (state.projection === "perspective") {
             const depth = Math.max(.65, state.distance - t.z);
             const focal = height / (2 * Math.tan(radians(state.fov) / 2));
@@ -827,7 +901,7 @@
         }
 
         function drawExtendedCubeLines() {
-          if (!state.vanishingOverlay || state.object !== "cube" || isCurvilinearProjection()) return;
+          if (!state.vanishingOverlay || state.object !== "cube" || isCurvilinearProjection() || isPoincareProjection()) return;
           ctx.save();
           for (const axis of ["x", "y", "z"]) {
             for (const [i, j] of cubeAxisEdges[axis]) drawExtendedScreenLine(project(cubeVertices[i]), project(cubeVertices[j]), vanishingColors[axis]);
@@ -836,7 +910,7 @@
         }
 
         function drawVanishingPoints() {
-          if (!state.vanishingOverlay || state.object !== "cube" || isCurvilinearProjection()) return;
+          if (!state.vanishingOverlay || state.object !== "cube" || isCurvilinearProjection() || isPoincareProjection()) return;
           const center = project({ x: 0, y: 0, z: 0 });
           const centerX = center.x, centerY = center.y;
           const focal = height / (2 * Math.tan(radians(state.fov) / 2));
@@ -912,8 +986,9 @@
             ? state.projection === "stereographicFisheye"
               ? edgeRadius * Math.tan(sphereTheta / 2) / Math.tan(thetaMax / 2)
               : edgeRadius * sphereTheta / thetaMax
-            : isCentralProjection() ? center.amount * 1.24 : Math.min(width, height) * .185 * state.scale * 1.24;
-          if (state.projection !== "equirectangular") {
+            : isPoincareProjection() ? Math.min(width, height) * .36 * state.scale * .76
+              : isCentralProjection() ? center.amount * 1.24 : Math.min(width, height) * .185 * state.scale * 1.24;
+          if (state.projection !== "equirectangular" && !isPoincareProjection()) {
             const gradient = ctx.createRadialGradient(center.x - radius * .36, center.y - radius * .45, radius * .05, center.x, center.y, radius * 1.05);
             gradient.addColorStop(0, "rgba(179, 202, 204, .55)"); gradient.addColorStop(.72, "rgba(104, 151, 164, .19)"); gradient.addColorStop(1, "rgba(74, 117, 139, .08)");
             ctx.beginPath(); ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); ctx.fillStyle = gradient; ctx.fill();
@@ -949,9 +1024,13 @@
         function draw() {
           ctx.clearRect(0, 0, width, height);
           const fisheye = isCircularFisheye();
-          if (fisheye) {
+          const poincare = isPoincareProjection();
+          if (fisheye || poincare) {
             ctx.save();
-            ctx.beginPath(); ctx.arc(width * .5, height * .5, Math.min(width, height) * .43, 0, Math.PI * 2); ctx.clip();
+            const radius = poincare ? Math.min(width, height) * .36 * state.scale : Math.min(width, height) * .43;
+            ctx.beginPath(); ctx.arc(width * .5, height * .5, radius, 0, Math.PI * 2);
+            if (poincare) { ctx.fillStyle = "rgba(104, 151, 164, .07)"; ctx.fill(); }
+            ctx.clip();
           }
           drawGrid();
           drawExtendedCubeLines();
@@ -961,10 +1040,11 @@
           else drawSphere();
           if (state.object !== "axes") drawAxes(state.object === "square" ? 1.15 : .95);
           drawVanishingPoints();
-          if (fisheye) {
+          if (fisheye || poincare) {
             ctx.restore();
-            ctx.beginPath(); ctx.arc(width * .5, height * .5, Math.min(width, height) * .43, 0, Math.PI * 2);
-            ctx.strokeStyle = "rgba(49, 84, 107, .4)"; ctx.lineWidth = 1.3; ctx.stroke();
+            const radius = poincare ? Math.min(width, height) * .36 * state.scale : Math.min(width, height) * .43;
+            ctx.beginPath(); ctx.arc(width * .5, height * .5, radius, 0, Math.PI * 2);
+            ctx.setLineDash(poincare ? [5, 4] : []); ctx.strokeStyle = poincare ? "rgba(217, 111, 75, .72)" : "rgba(49, 84, 107, .4)"; ctx.lineWidth = 1.3; ctx.stroke(); ctx.setLineDash([]);
           }
         }
 
