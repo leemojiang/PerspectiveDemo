@@ -351,6 +351,7 @@
           oblique: { family: "parallel", title: "斜投影", badge: "平行 · 斜投影", name: "斜投影", glyph: "▱", desc: "正面保持形状，深度斜向退后", intro: "正面平行于画面，深度轴按指定角度与比例斜向延伸。", formula: "u = s · (x + k z cos α)\nv = s · (y + k z sin α)", note: "α 控制深度轴方向，k 控制深度缩短；正面平行于像平面。", relation: "正面尺寸保持不变，深度方向以比例 k 斜向偏移。", summary: "正面等大，深度轴斜向偏移" },
           equidistantFisheye: { family: "curved", title: "等距鱼眼", badge: "曲线 · 等距鱼眼", name: "等距鱼眼", desc: "视线角度映射到圆形画面", glyph: "◎", intro: "把三维视线方向映射到圆形画面，离中心的距离与视线夹角成正比。", formula: "θ = atan2(ρ, d)\nr = f · θ\n(u, v) = r · (x, y) / ρ", note: "ρ=√(x²+y²)，d 为视线方向的深度。边缘对应视场角的一半。", relation: "画面不再使用平面透视除法；宽视角场景会呈现明显的弯曲与环绕感。", summary: "角度等距 · 鱼眼圆形视场" },
           gnomonic: { family: "curved", title: "心射投影", badge: "曲线 · 心射投影", name: "心射投影", desc: "球面大圆在画面上成为直线", glyph: "╱", intro: "从球心向切平面投射方向；球面上的大圆会映成直线。", formula: "θ = atan2(ρ, d)\nr = f · tan(θ)\n(u, v) = r · (x, y) / ρ", note: "只显示中心半球；当 θ 接近 90° 时，投影半径趋向无穷。", relation: "大圆与直线的对应使航线规划直观；远离中心的区域会被强烈拉伸。", summary: "球面大圆 → 直线 · 切平面投影" },
+          orthographicAzimuthal: { family: "curved", title: "方位正射投影", badge: "曲线 · 方位正射", name: "方位正射投影", desc: "从无穷远处看见一个球面半球", glyph: "◉", intro: "把球面方向沿平行视线投到圆盘，形成类似从太空观察地球的外观。", formula: "θ = atan2(ρ, d)\nr = R · sin(θ)\n(u, v) = r · (x, y) / ρ", note: "只显示中心半球；地平线落在有限圆周上。", relation: "中心附近接近真实球面视图；远处被压向圆形地平线，背面不可见。", summary: "平行视线 · 半球映到圆盘" },
           stereographicFisheye: { family: "curved", title: "立体鱼眼", badge: "曲线 · 立体鱼眼", name: "立体鱼眼", desc: "保角投影，边缘扩张更强", glyph: "◉", intro: "用立体投影把视线方向映射到圆面，局部角度保持不变，边缘比等距鱼眼更扩张。", formula: "θ = atan2(ρ, d)\nr = 2f · tan(θ/2)\n(u, v) = r · (x, y) / ρ", note: "f 按视场角缩放，使 θ=FOV/2 落在圆形视场边缘。", relation: "中心附近与等距鱼眼相似；越靠近边缘，立体投影的径向拉伸越明显。", summary: "保角立体投影 · 边缘径向扩张" },
           equirectangular: { family: "curved", title: "等距柱面全景", badge: "曲线 · 柱面全景", name: "等距柱面全景", desc: "经纬角展开为 360°×180°", glyph: "▥", intro: "把三维方向转换成经度与纬度，再展开为横向全景图。", formula: "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − φ/π)\nd = D − z", note: "水平覆盖 360°，垂直覆盖 180°；左右边缘代表同一条经线。", relation: "水平方向按经度线性展开，靠近上下极点时形状会被明显拉伸。", summary: "经纬角展开 · 360°×180° 全景" },
           lambertAzimuthal: { family: "curved", title: "兰伯特方位等积", badge: "曲线 · 方位等积", name: "方位等积投影", desc: "圆形视场保持面积比例", glyph: "◉", intro: "把三维方向投到圆面，并保持球面区域的面积比例。", formula: "θ = atan2(ρ, d)\nr = 2R · sin(θ/2)\n(u, v) = r · (x, y) / ρ", note: "R 按视场角缩放；视场角较大时，圆形边缘仍保持有限。", relation: "球面上的区域面积映射后保持比例，形状与角度会产生变形。", summary: "方位等积 · 圆形视场保持面积" },
@@ -376,7 +377,7 @@
 
         function family() { return current().family; }
         function isCurvilinearProjection() { return family() === "curved"; }
-        function isCircularFisheye() { return state.projection === "equidistantFisheye" || state.projection === "stereographicFisheye" || state.projection === "lambertAzimuthal" || state.projection === "gnomonic"; }
+        function isCircularProjection() { return state.projection === "equidistantFisheye" || state.projection === "stereographicFisheye" || state.projection === "lambertAzimuthal" || state.projection === "gnomonic" || state.projection === "orthographicAzimuthal"; }
         function isPanoramaProjection() { return state.projection === "equirectangular" || state.projection === "mercatorPanorama"; }
         function isPoincareProjection() { return state.projection === "poincareBall"; }
         function isKleinProjection() { return state.projection === "kleinBall"; }
@@ -406,9 +407,11 @@
           if (key === "perspective" || key === "reversePerspective" || key === "weakPerspective") {
             html += sliderRow("fov", "视场角 FOV", state.fov, 24, 110, 1, "°", "24°", "110°");
             html += sliderRow("distance", "相机距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
-          } else if (isCircularFisheye()) {
-            const minFov = key === "gnomonic" ? 30 : 100, maxFov = key === "gnomonic" ? 170 : 220;
-            html += sliderRow("fisheyeFov", key === "gnomonic" ? "半球视场角" : "鱼眼视场角", state.fisheyeFov, minFov, maxFov, 1, "°", `${minFov}°`, `${maxFov}°`);
+          } else if (isCircularProjection()) {
+            const minFov = key === "gnomonic" || key === "orthographicAzimuthal" ? 30 : 100;
+            const maxFov = key === "gnomonic" ? 170 : key === "orthographicAzimuthal" ? 180 : 220;
+            const label = key === "gnomonic" || key === "orthographicAzimuthal" ? "半球视场角" : "鱼眼视场角";
+            html += sliderRow("fisheyeFov", label, state.fisheyeFov, minFov, maxFov, 1, "°", `${minFov}°`, `${maxFov}°`);
             html += sliderRow("distance", "视点距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
           } else if (isPanoramaProjection()) {
             html += sliderRow("distance", "视点距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
@@ -440,7 +443,8 @@
         function selectProjection(key) {
           state.projection = key;
           if (key === "gnomonic") state.fisheyeFov = state.fisheyeFov > 170 ? 120 : clamp(state.fisheyeFov, 30, 170);
-          else if (isCircularFisheye()) state.fisheyeFov = clamp(state.fisheyeFov, 100, 220);
+          else if (key === "orthographicAzimuthal") state.fisheyeFov = clamp(state.fisheyeFov, 30, 180);
+          else if (isCircularProjection()) state.fisheyeFov = clamp(state.fisheyeFov, 100, 220);
           state.manualOrbit = false;
           if (key === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
           else if (key === "oblique") { state.yaw = 0; state.pitch = 0; }
@@ -475,6 +479,7 @@
             if (state.projection === "equirectangular") return "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − φ/π)\nd = D − z";
             if (state.projection === "mercatorPanorama") return "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nM = ln tan(π/4 + φ/2)\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − M/2π)\nd = D − z";
             if (state.projection === "lambertAzimuthal") return "θ = atan2(ρ, d)\nr = 2R · sin(θ/2)\nu = r · x/ρ,  v = −r · y/ρ\nρ = √(x² + y²),  d = D − z";
+            if (state.projection === "orthographicAzimuthal") return "θ = atan2(ρ, d)\nr = R · sin(θ)\nu = r · x/ρ,  v = −r · y/ρ\n仅显示中心半球，地平线为圆周";
             if (state.projection === "gnomonic") return "θ = atan2(ρ, d)\nr = f · tan(θ)\nu = r · x/ρ,  v = −r · y/ρ\nθ < 90°，大圆映为直线";
             return state.projection === "stereographicFisheye"
               ? "θ = atan2(ρ, d)\nr = 2f · tan(θ/2)\nu = r · x/ρ,  v = −r · y/ρ\nρ = √(x² + y²),  d = D − z"
@@ -575,6 +580,8 @@
                 ? "水平范围 = 360°\n纬度范围 = ±85.051°\nM = ln tan(π/4 + φ/2)"
               : state.projection === "lambertAzimuthal"
                 ? `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nR = ${format(Math.min(width, height) * .43 / (2 * Math.sin(radians(state.fisheyeFov / 4))), 2)} px`
+                : state.projection === "orthographicAzimuthal"
+                  ? `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nR = ${format(Math.min(width, height) * .43 / Math.sin(radians(state.fisheyeFov / 2)), 2)} px`
                 : `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nf = ${format(state.projection === "stereographicFisheye" ? Math.min(width, height) * .43 / (2 * Math.tan(radians(state.fisheyeFov / 4))) : state.projection === "gnomonic" ? Math.min(width, height) * .43 / Math.tan(radians(state.fisheyeFov / 2)) : Math.min(width, height) * .43 / radians(state.fisheyeFov / 2), 2)} px`
             : matrixText(projectionMatrix());
           $("#matrixView").textContent = matrixText(viewMatrix());
@@ -594,7 +601,8 @@
               ? "单位球边界对应无限远；球内半径按双曲距离非线性压缩。"
               : state.projection === "equirectangular" ? "完整环绕一周，并覆盖从北极到南极的视线方向。"
                 : state.projection === "mercatorPanorama" ? "全景经度环绕；纬度限制在 ±85.051° 以保留有限画幅。"
-              : state.projection === "lambertAzimuthal" ? "R 按 FOV 缩放，映射到圆形视场并保持球面面积比例。"
+                : state.projection === "lambertAzimuthal" ? "R 按 FOV 缩放，映射到圆形视场并保持球面面积比例。"
+                : state.projection === "orthographicAzimuthal" ? "半球沿平行视线压到圆盘；可见边缘对应地平线。"
                 : state.projection === "gnomonic" ? "视场限制在半球内；θ 越接近 90°，tan(θ) 会使画面尺度急剧增大。"
                 : "f 将最大视线夹角映射到圆形视场边缘。"
             : centerModes
@@ -622,7 +630,9 @@
                 ? "墨卡托全景以对数正切展开纬度，极点趋于无穷，因此将输入纬度限制在 ±85.051°；经度方向仍首尾相接。"
               : state.projection === "lambertAzimuthal"
                 ? "兰伯特方位等积映射用 r=2R·sin(θ/2) 保持面积比例；角度函数使它无法写成单一 4×4 透视矩阵。"
-              : state.projection === "gnomonic"
+              : state.projection === "orthographicAzimuthal"
+                ? "方位正射投影只显示球面朝向观察者的半球；背面超出地平线后不可见，地平线被压到有限圆周。"
+                : state.projection === "gnomonic"
                 ? "心射投影把球面大圆映为直线；切平面在地平线处趋于无穷，因此只显示小于 180° 的中心半球。"
                 : "鱼眼根据 atan2(ρ,d) 计算每条视线的角度，再转为画面半径；常规 4×4 矩阵无法表达这一步非线性映射。"
             : state.projection === "weakPerspective"
@@ -651,7 +661,7 @@
           $("#stageHint").textContent = isHyperbolicProjection()
             ? isPoincareProjection() ? "球边界是无限远 · 测地线会弯曲" : "球边界是无限远 · 测地线是直弦"
             : isCurvilinearProjection()
-            ? isPanoramaProjection() ? "经纬角展开 · 左右边界相接" : state.projection === "gnomonic" ? "大圆映为直线 · 视场小于 180°" : "视线角度映射到圆形视场"
+            ? isPanoramaProjection() ? "经纬角展开 · 左右边界相接" : state.projection === "gnomonic" ? "大圆映为直线 · 视场小于 180°" : state.projection === "orthographicAzimuthal" ? "球面半球 · 圆形地平线" : "视线角度映射到圆形视场"
             : state.projection === "oblique"
             ? "方向由 α 控制"
                 : state.object === "cube" && state.vanishingOverlay && !hasFiniteVanishingPoints()
@@ -665,7 +675,7 @@
           else if (state.projection === "weakPerspective") summary = `FOV ${Math.round(state.fov)}°　·　平均深度 ${format(state.distance)}`;
           else if (state.projection === "equirectangular") summary = "全景　·　360° × 180°";
           else if (state.projection === "mercatorPanorama") summary = "墨卡托全景　·　高纬拉伸";
-          else if (isCurvilinearProjection()) summary = `${state.projection === "stereographicFisheye" ? "立体投影" : state.projection === "lambertAzimuthal" ? "方位等积" : state.projection === "gnomonic" ? "心射投影" : "等距投影"}　·　FOV ${Math.round(state.fisheyeFov)}°`;
+          else if (isCurvilinearProjection()) summary = `${state.projection === "stereographicFisheye" ? "立体投影" : state.projection === "lambertAzimuthal" ? "方位等积" : state.projection === "gnomonic" ? "心射投影" : state.projection === "orthographicAzimuthal" ? "方位正射" : "等距投影"}　·　FOV ${Math.round(state.fisheyeFov)}°`;
           else if (isPoincareProjection()) summary = "双曲空间　·　K = −1　·　边界在无穷远";
           else if (isKleinProjection()) summary = "双曲空间　·　直弦测地线　·　K = −1";
           else if (state.projection === "orthographic") summary = `比例 ${format(state.scale, 2)}×　·　平行视线`;
@@ -812,8 +822,8 @@
             const theta = Math.atan2(rho, depth);
             const thetaMax = radians(state.fisheyeFov / 2);
             const edgeRadius = Math.min(width, height) * .43;
-            const focal = state.projection === "stereographicFisheye" ? edgeRadius / (2 * Math.tan(thetaMax / 2)) : state.projection === "lambertAzimuthal" ? edgeRadius / (2 * Math.sin(thetaMax / 2)) : state.projection === "gnomonic" ? edgeRadius / Math.tan(thetaMax) : edgeRadius / thetaMax;
-            const radius = state.projection === "stereographicFisheye" ? 2 * focal * Math.tan(theta / 2) : state.projection === "lambertAzimuthal" ? 2 * focal * Math.sin(theta / 2) : state.projection === "gnomonic" ? focal * Math.tan(theta) : focal * theta;
+            const focal = state.projection === "stereographicFisheye" ? edgeRadius / (2 * Math.tan(thetaMax / 2)) : state.projection === "lambertAzimuthal" ? edgeRadius / (2 * Math.sin(thetaMax / 2)) : state.projection === "orthographicAzimuthal" ? edgeRadius / Math.sin(thetaMax) : state.projection === "gnomonic" ? edgeRadius / Math.tan(thetaMax) : edgeRadius / thetaMax;
+            const radius = state.projection === "stereographicFisheye" ? 2 * focal * Math.tan(theta / 2) : state.projection === "lambertAzimuthal" ? 2 * focal * Math.sin(theta / 2) : state.projection === "orthographicAzimuthal" ? focal * Math.sin(theta) : state.projection === "gnomonic" ? focal * Math.tan(theta) : focal * theta;
             const amount = rho > 1e-8 ? radius / rho : focal / Math.max(.1, depth);
             return { x: centerX + amount * t.x, y: centerY - amount * t.y, z: t.z, depth, amount };
           }
@@ -1041,6 +1051,8 @@
                 ? edgeRadius * Math.tan(sphereTheta / 2) / Math.tan(thetaMax / 2)
                 : state.projection === "lambertAzimuthal"
                   ? edgeRadius * Math.sin(sphereTheta / 2) / Math.sin(thetaMax / 2)
+                  : state.projection === "orthographicAzimuthal"
+                    ? edgeRadius * Math.sin(sphereTheta) / Math.sin(thetaMax)
                   : state.projection === "gnomonic"
                     ? edgeRadius * Math.tan(sphereTheta) / Math.tan(thetaMax)
                 : edgeRadius * sphereTheta / thetaMax
@@ -1081,9 +1093,9 @@
 
         function draw() {
           ctx.clearRect(0, 0, width, height);
-          const fisheye = isCircularFisheye();
+          const circularView = isCircularProjection();
           const hyperbolic = isHyperbolicProjection();
-          if (fisheye || hyperbolic) {
+          if (circularView || hyperbolic) {
             ctx.save();
             const radius = hyperbolic ? Math.min(width, height) * .36 * state.scale : Math.min(width, height) * .43;
             ctx.beginPath(); ctx.arc(width * .5, height * .5, radius, 0, Math.PI * 2);
@@ -1098,7 +1110,7 @@
           else drawSphere();
           if (state.object !== "axes") drawAxes(state.object === "square" ? 1.15 : .95);
           drawVanishingPoints();
-          if (fisheye || hyperbolic) {
+          if (circularView || hyperbolic) {
             ctx.restore();
             const radius = hyperbolic ? Math.min(width, height) * .36 * state.scale : Math.min(width, height) * .43;
             ctx.beginPath(); ctx.arc(width * .5, height * .5, radius, 0, Math.PI * 2);
@@ -1190,7 +1202,8 @@
                 if (input.vanishingOverlay !== undefined) state.vanishingOverlay = input.vanishingOverlay;
                 for (const key of ["fov", "fisheyeFov", "distance", "scale", "obliqueAngle", "depthFactor"]) if (input[key] !== undefined) state[key] = input[key];
                 if (state.projection === "gnomonic") state.fisheyeFov = !input.fisheyeFov && state.fisheyeFov > 170 ? 120 : clamp(state.fisheyeFov, 30, 170);
-                else if (isCircularFisheye()) state.fisheyeFov = clamp(state.fisheyeFov, 100, 220);
+                else if (state.projection === "orthographicAzimuthal") state.fisheyeFov = clamp(state.fisheyeFov, 30, 180);
+                else if (isCircularProjection()) state.fisheyeFov = clamp(state.fisheyeFov, 100, 220);
                 state.manualOrbit = false;
                 if (state.projection === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
                 else if (state.projection === "oblique") { state.yaw = 0; state.pitch = 0; }
