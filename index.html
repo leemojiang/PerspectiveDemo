@@ -352,6 +352,7 @@
           equidistantFisheye: { family: "curved", title: "等距鱼眼", badge: "曲线 · 等距鱼眼", name: "等距鱼眼", desc: "视线角度映射到圆形画面", glyph: "◎", intro: "把三维视线方向映射到圆形画面，离中心的距离与视线夹角成正比。", formula: "θ = atan2(ρ, d)\nr = f · θ\n(u, v) = r · (x, y) / ρ", note: "ρ=√(x²+y²)，d 为视线方向的深度。边缘对应视场角的一半。", relation: "画面不再使用平面透视除法；宽视角场景会呈现明显的弯曲与环绕感。", summary: "角度等距 · 鱼眼圆形视场" },
           stereographicFisheye: { family: "curved", title: "立体鱼眼", badge: "曲线 · 立体鱼眼", name: "立体鱼眼", desc: "保角投影，边缘扩张更强", glyph: "◉", intro: "用立体投影把视线方向映射到圆面，局部角度保持不变，边缘比等距鱼眼更扩张。", formula: "θ = atan2(ρ, d)\nr = 2f · tan(θ/2)\n(u, v) = r · (x, y) / ρ", note: "f 按视场角缩放，使 θ=FOV/2 落在圆形视场边缘。", relation: "中心附近与等距鱼眼相似；越靠近边缘，立体投影的径向拉伸越明显。", summary: "保角立体投影 · 边缘径向扩张" },
           equirectangular: { family: "curved", title: "等距柱面全景", badge: "曲线 · 柱面全景", name: "等距柱面全景", desc: "经纬角展开为 360°×180°", glyph: "▥", intro: "把三维方向转换成经度与纬度，再展开为横向全景图。", formula: "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − φ/π)\nd = D − z", note: "水平覆盖 360°，垂直覆盖 180°；左右边缘代表同一条经线。", relation: "水平方向按经度线性展开，靠近上下极点时形状会被明显拉伸。", summary: "经纬角展开 · 360°×180° 全景" },
+          lambertAzimuthal: { family: "curved", title: "兰伯特方位等积", badge: "曲线 · 方位等积", name: "方位等积投影", desc: "圆形视场保持面积比例", glyph: "◉", intro: "把三维方向投到圆面，并保持球面区域的面积比例。", formula: "θ = atan2(ρ, d)\nr = 2R · sin(θ/2)\n(u, v) = r · (x, y) / ρ", note: "R 按视场角缩放；视场角较大时，圆形边缘仍保持有限。", relation: "球面上的区域面积映射后保持比例，形状与角度会产生变形。", summary: "方位等积 · 圆形视场保持面积" },
           poincareBall: { family: "nonEuclidean", title: "Poincaré 双曲球", badge: "非欧 · Poincaré 球", name: "Poincaré 双曲球", desc: "无穷空间压入单位球，测地线弯曲", glyph: "◌", intro: "把负曲率的双曲空间表示在单位球内；越靠近球边界，双曲距离增长越快。", formula: "ρ = tanh(r/2)\np = (ρ/r) · x\nds² = 4 · |dp|² / (1 − |p|²)²", note: "曲率 K=−1。球内直径或与边界正交的圆弧代表双曲测地线。", relation: "边界是无限远；测地线在球内通常表现为弯曲圆弧，角度在该模型中保持不变。", summary: "双曲空间 · K = −1 · 边界在无穷远" }
         };
         const state = {
@@ -372,7 +373,7 @@
 
         function family() { return current().family; }
         function isCurvilinearProjection() { return family() === "curved"; }
-        function isCircularFisheye() { return state.projection === "equidistantFisheye" || state.projection === "stereographicFisheye"; }
+        function isCircularFisheye() { return state.projection === "equidistantFisheye" || state.projection === "stereographicFisheye" || state.projection === "lambertAzimuthal"; }
         function isPoincareProjection() { return state.projection === "poincareBall"; }
         function setPressed(selector, key, value) {
           $$(selector).forEach(button => button.setAttribute("aria-pressed", String(button.dataset[key] === value)));
@@ -399,7 +400,7 @@
           if (key === "perspective" || key === "reversePerspective" || key === "weakPerspective") {
             html += sliderRow("fov", "视场角 FOV", state.fov, 24, 110, 1, "°", "24°", "110°");
             html += sliderRow("distance", "相机距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
-          } else if (key === "equidistantFisheye" || key === "stereographicFisheye") {
+          } else if (key === "equidistantFisheye" || key === "stereographicFisheye" || key === "lambertAzimuthal") {
             html += sliderRow("fisheyeFov", "鱼眼视场角", state.fisheyeFov, 100, 220, 1, "°", "100°", "220°");
             html += sliderRow("distance", "视点距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
           } else if (key === "equirectangular") {
@@ -460,6 +461,7 @@
           }
           if (isCurvilinearProjection()) {
             if (state.projection === "equirectangular") return "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − φ/π)\nd = D − z";
+            if (state.projection === "lambertAzimuthal") return "θ = atan2(ρ, d)\nr = 2R · sin(θ/2)\nu = r · x/ρ,  v = −r · y/ρ\nρ = √(x² + y²),  d = D − z";
             return state.projection === "stereographicFisheye"
               ? "θ = atan2(ρ, d)\nr = 2f · tan(θ/2)\nu = r · x/ρ,  v = −r · y/ρ\nρ = √(x² + y²),  d = D − z"
               : "θ = atan2(ρ, d)\nr = f · θ\nu = r · x/ρ,  v = −r · y/ρ\nρ = √(x² + y²),  d = D − z";
@@ -553,7 +555,9 @@
               ? `曲率 K = −1\n球半径 R = 1\n屏幕比例 = ${format(Math.min(width, height) * .36 * state.scale, 2)} px`
               : state.projection === "equirectangular"
               ? "水平范围 = 360°\n垂直范围 = 180°\n边缘经度 = ±180°"
-              : `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nf = ${format(state.projection === "stereographicFisheye" ? Math.min(width, height) * .43 / (2 * Math.tan(radians(state.fisheyeFov / 4))) : Math.min(width, height) * .43 / radians(state.fisheyeFov / 2), 2)} px`
+              : state.projection === "lambertAzimuthal"
+                ? `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nR = ${format(Math.min(width, height) * .43 / (2 * Math.sin(radians(state.fisheyeFov / 4))), 2)} px`
+                : `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nf = ${format(state.projection === "stereographicFisheye" ? Math.min(width, height) * .43 / (2 * Math.tan(radians(state.fisheyeFov / 4))) : Math.min(width, height) * .43 / radians(state.fisheyeFov / 2), 2)} px`
             : matrixText(projectionMatrix());
           $("#matrixView").textContent = matrixText(viewMatrix());
           $("#matrixSymbolicNote").textContent = customMap
@@ -570,7 +574,9 @@
           $("#matrixProjectionNote").textContent = customMap
             ? isPoincareProjection()
               ? "单位球边界对应无限远；球内半径按双曲距离非线性压缩。"
-              : state.projection === "equirectangular" ? "完整环绕一周，并覆盖从北极到南极的视线方向。" : "f 将最大视线夹角映射到圆形视场边缘。"
+              : state.projection === "equirectangular" ? "完整环绕一周，并覆盖从北极到南极的视线方向。"
+                : state.projection === "lambertAzimuthal" ? "R 按 FOV 缩放，映射到圆形视场并保持球面面积比例。"
+                : "f 将最大视线夹角映射到圆形视场边缘。"
             : centerModes
             ? state.projection === "weakPerspective"
               ? `θ=${Math.round(state.fov)}°，D=${format(state.distance, 2)}；整件物体共用比例 f/D。`
@@ -590,7 +596,9 @@
               ? "这是负曲率空间的几何模型，不是普通相机投影。测地线由直径或与单位球边界正交的圆弧构成，边界本身代表无限远。"
               : state.projection === "equirectangular"
               ? "柱面全景把每条视线转换为经纬角后展开；左右边界相接，接缝处的线段会绕回另一侧。这个角度映射没有单一 4×4 投影矩阵。"
-              : "鱼眼根据 atan2(ρ,d) 计算每条视线的角度，再转为画面半径；常规 4×4 矩阵无法表达这一步非线性映射。"
+              : state.projection === "lambertAzimuthal"
+                ? "兰伯特方位等积映射用 r=2R·sin(θ/2) 保持面积比例；角度函数使它无法写成单一 4×4 透视矩阵。"
+                : "鱼眼根据 atan2(ρ,d) 计算每条视线的角度，再转为画面半径；常规 4×4 矩阵无法表达这一步非线性映射。"
             : state.projection === "weakPerspective"
             ? "弱透视移除了逐点的透视除法，P 的 x/y 比例项含 f/D；相机距离只改变整件物体的统一缩放。"
             : state.projection === "reversePerspective"
@@ -630,7 +638,7 @@
           else if (state.projection === "reversePerspective") summary = `FOV ${Math.round(state.fov)}°　·　D ${format(state.distance)}　·　远大近小`;
           else if (state.projection === "weakPerspective") summary = `FOV ${Math.round(state.fov)}°　·　平均深度 ${format(state.distance)}`;
           else if (state.projection === "equirectangular") summary = "全景　·　360° × 180°";
-          else if (isCurvilinearProjection()) summary = `${state.projection === "stereographicFisheye" ? "立体投影" : "等距投影"}　·　FOV ${Math.round(state.fisheyeFov)}°`;
+          else if (isCurvilinearProjection()) summary = `${state.projection === "stereographicFisheye" ? "立体投影" : state.projection === "lambertAzimuthal" ? "方位等积" : "等距投影"}　·　FOV ${Math.round(state.fisheyeFov)}°`;
           else if (isPoincareProjection()) summary = "双曲空间　·　K = −1　·　边界在无穷远";
           else if (state.projection === "orthographic") summary = `比例 ${format(state.scale, 2)}×　·　平行视线`;
           else if (state.projection === "isometric") summary = `标准仰角 35.264°　·　比例 ${format(state.scale, 2)}×${state.manualOrbit ? "　·　视向已调整" : ""}`;
@@ -758,8 +766,8 @@
             const theta = Math.atan2(rho, depth);
             const thetaMax = radians(state.fisheyeFov / 2);
             const edgeRadius = Math.min(width, height) * .43;
-            const focal = state.projection === "stereographicFisheye" ? edgeRadius / (2 * Math.tan(thetaMax / 2)) : edgeRadius / thetaMax;
-            const radius = state.projection === "stereographicFisheye" ? 2 * focal * Math.tan(theta / 2) : focal * theta;
+            const focal = state.projection === "stereographicFisheye" ? edgeRadius / (2 * Math.tan(thetaMax / 2)) : state.projection === "lambertAzimuthal" ? edgeRadius / (2 * Math.sin(thetaMax / 2)) : edgeRadius / thetaMax;
+            const radius = state.projection === "stereographicFisheye" ? 2 * focal * Math.tan(theta / 2) : state.projection === "lambertAzimuthal" ? 2 * focal * Math.sin(theta / 2) : focal * theta;
             const amount = rho > 1e-8 ? radius / rho : focal / Math.max(.1, depth);
             return { x: centerX + amount * t.x, y: centerY - amount * t.y, z: t.z, depth, amount };
           }
@@ -985,6 +993,8 @@
           const radius = isCurvilinearProjection()
             ? state.projection === "stereographicFisheye"
               ? edgeRadius * Math.tan(sphereTheta / 2) / Math.tan(thetaMax / 2)
+              : state.projection === "lambertAzimuthal"
+                ? edgeRadius * Math.sin(sphereTheta / 2) / Math.sin(thetaMax / 2)
               : edgeRadius * sphereTheta / thetaMax
             : isPoincareProjection() ? Math.min(width, height) * .36 * state.scale * .76
               : isCentralProjection() ? center.amount * 1.24 : Math.min(width, height) * .185 * state.scale * 1.24;
