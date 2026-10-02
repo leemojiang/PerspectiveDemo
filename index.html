@@ -77,8 +77,8 @@
       .object-icon { width: 30px; height: 30px; display: grid; place-items: center; color: var(--navy); flex: 0 0 auto; }
       .object-label { font-size: 13px; font-weight: 560; }
 
-      .family-switch { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border: 1px solid #e7e6e0; border-radius: 8px; background: #f7f6f2; }
-      .family-option { padding: 8px 7px; border: 0; border-radius: 6px; background: transparent; color: #748087; font-size: 13px; cursor: pointer; }
+      .family-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 3px; border: 1px solid #e7e6e0; border-radius: 8px; background: #f7f6f2; }
+      .family-option { padding: 8px 4px; border: 0; border-radius: 6px; background: transparent; color: #748087; font-size: 12px; cursor: pointer; }
       .family-option[aria-pressed="true"] { background: #fff; box-shadow: 0 1px 3px rgba(35, 50, 58, .11); color: var(--navy); font-weight: 650; }
       .preset-list { display: grid; gap: 7px; }
       .preset-option { width: 100%; min-height: 53px; padding: 9px 11px; display: flex; align-items: center; gap: 11px; border: 1px solid transparent; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; }
@@ -258,6 +258,7 @@
           <div class="family-switch" role="group" aria-label="投影类别">
             <button class="family-option" data-family="central" aria-pressed="true">中心投影</button>
             <button class="family-option" data-family="parallel" aria-pressed="false">平行投影</button>
+            <button class="family-option" data-family="curved" aria-pressed="false">曲线投影</button>
           </div>
           <div class="preset-list" id="presetList" role="group" aria-label="投影方式"></div>
 
@@ -315,17 +316,17 @@
         </div>
         <div class="matrix-grid">
           <article class="matrix-panel">
-            <h3>参数化投影矩阵 P</h3>
+            <h3 id="matrixSymbolicHeading">参数化投影矩阵 P</h3>
             <p class="matrix-context" id="matrixSymbolicNote">符号形式：调节投影参数时，矩阵中的参数同步改变。</p>
             <pre class="matrix-value" id="matrixSymbolic" aria-live="polite"></pre>
           </article>
           <article class="matrix-panel">
-            <h3>当前数值 P</h3>
+            <h3 id="matrixProjectionHeading">当前数值 P</h3>
             <p class="matrix-context" id="matrixProjectionNote">当前模式代入参数后的投影矩阵。</p>
             <pre class="matrix-value" id="matrixProjection" aria-live="polite"></pre>
           </article>
           <article class="matrix-panel">
-            <h3>相机视图矩阵 V</h3>
+            <h3 id="matrixViewHeading">相机视图矩阵 V</h3>
             <p class="matrix-context" id="matrixViewNote">拖动画布会改变相机朝向；相机距离属于 V。</p>
             <pre class="matrix-value" id="matrixView" aria-live="polite"></pre>
           </article>
@@ -346,10 +347,11 @@
           weakPerspective: { family: "central", title: "弱透视", badge: "中心 · 弱透视", name: "弱透视", desc: "用平均深度统一缩放", glyph: "≈", intro: "把物体各点的深度近似为平均深度 D，因此每个点使用相同缩放。", formula: "x′ ≈ (f / D) · x\ny′ ≈ (f / D) · y\nf = H / 2 tan(θ / 2)", note: "这是透视投影在物体深度变化较小时的近似，也称缩放正交投影。", relation: "整件物体随平均距离缩放；物体内部的近远部分几乎等大。", summary: "保留整体缩放，压低物体内部的近大远小" },
           orthographic: { family: "parallel", title: "正交投影", badge: "平行 · 正交", name: "正交投影", desc: "平行投影线，无近大远小", glyph: "▤", intro: "投影线彼此平行，物体尺寸不随深度改变。", formula: "x′ = s · x\ny′ = s · y", note: "s 为统一比例因子。相机沿深度方向移动，不会改变物体在画面中的尺寸。", relation: "深度只改变前后位置；相同大小的物体始终等大。", summary: "深度变化，不改变投影尺寸" },
           isometric: { family: "parallel", title: "等轴测", badge: "平行 · 等轴测", name: "等轴测投影", glyph: "◇", desc: "三个坐标轴等比例缩短", intro: "沿三个轴的缩短比例相同，常用于工程图与游戏地图。", formula: "u = s · (x − z) / √2\nv = s · (2y − x − z) / √6", note: "三条主轴投影后的长度相等；标准视向仰角约 35.264°。", relation: "标准视向下，X、Y、Z 三轴在画面中的缩短比例相等。", summary: "三轴缩短比例相等" },
-          oblique: { family: "parallel", title: "斜投影", badge: "平行 · 斜投影", name: "斜投影", glyph: "▱", desc: "正面保持形状，深度斜向退后", intro: "正面平行于画面，深度轴按指定角度与比例斜向延伸。", formula: "u = s · (x + k z cos α)\nv = s · (y + k z sin α)", note: "α 控制深度轴方向，k 控制深度缩短；正面平行于像平面。", relation: "正面尺寸保持不变，深度方向以比例 k 斜向偏移。", summary: "正面等大，深度轴斜向偏移" }
+          oblique: { family: "parallel", title: "斜投影", badge: "平行 · 斜投影", name: "斜投影", glyph: "▱", desc: "正面保持形状，深度斜向退后", intro: "正面平行于画面，深度轴按指定角度与比例斜向延伸。", formula: "u = s · (x + k z cos α)\nv = s · (y + k z sin α)", note: "α 控制深度轴方向，k 控制深度缩短；正面平行于像平面。", relation: "正面尺寸保持不变，深度方向以比例 k 斜向偏移。", summary: "正面等大，深度轴斜向偏移" },
+          equidistantFisheye: { family: "curved", title: "等距鱼眼", badge: "曲线 · 等距鱼眼", name: "等距鱼眼", desc: "视线角度映射到圆形画面", glyph: "◎", intro: "把三维视线方向映射到圆形画面，离中心的距离与视线夹角成正比。", formula: "θ = atan2(ρ, d)\nr = f · θ\n(u, v) = r · (x, y) / ρ", note: "ρ=√(x²+y²)，d 为视线方向的深度。边缘对应视场角的一半。", relation: "画面不再使用平面透视除法；宽视角场景会呈现明显的弯曲与环绕感。", summary: "角度等距 · 鱼眼圆形视场" }
         };
         const state = {
-          object: "cube", projection: "perspective", fov: 58, distance: 6.8,
+          object: "cube", projection: "perspective", fov: 58, distance: 6.8, fisheyeFov: 180,
           scale: 1.12, obliqueAngle: 45, depthFactor: .58, yaw: -.72, pitch: .35, manualOrbit: false, vanishingOverlay: true
         };
         const objectLabels = { cube: "立方体", square: "正方形", axes: "坐标轴", sphere: "球体" };
@@ -365,12 +367,13 @@
         const current = () => presets[state.projection];
 
         function family() { return current().family; }
+        function isCurvilinearProjection() { return family() === "curved"; }
         function setPressed(selector, key, value) {
           $$(selector).forEach(button => button.setAttribute("aria-pressed", String(button.dataset[key] === value)));
         }
 
         function renderPresets() {
-          const allowed = family() === "central" ? ["perspective", "reversePerspective"] : ["orthographic", "isometric", "oblique"];
+          const allowed = Object.keys(presets).filter(key => presets[key].family === family());
           $("#presetList").innerHTML = allowed.map(key => {
             const preset = presets[key];
             return `<button class="preset-option" type="button" data-preset="${key}" aria-pressed="${state.projection === key}"><span class="preset-glyph" aria-hidden="true">${preset.glyph}</span><span class="preset-copy"><span class="preset-name">${preset.name}</span><span class="preset-desc">${preset.desc}</span></span>${state.projection === key ? '<span class="preset-check" aria-hidden="true">●</span>' : ''}</button>`;
@@ -390,6 +393,9 @@
           if (key === "perspective" || key === "reversePerspective" || key === "weakPerspective") {
             html += sliderRow("fov", "视场角 FOV", state.fov, 24, 110, 1, "°", "24°", "110°");
             html += sliderRow("distance", "相机距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
+          } else if (key === "equidistantFisheye") {
+            html += sliderRow("fisheyeFov", "鱼眼视场角", state.fisheyeFov, 100, 220, 1, "°", "100°", "220°");
+            html += sliderRow("distance", "视点距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
           } else if (key === "orthographic") {
             html += sliderRow("scale", "画面比例 s", state.scale, .65, 1.65, .01, "×", "缩小", "放大");
           } else if (key === "isometric") {
@@ -439,6 +445,9 @@
         }
 
         function symbolicProjectionMatrix() {
+          if (isCurvilinearProjection()) {
+            return "θ = atan2(ρ, d)\nr = f · θ\nu = r · x/ρ,  v = −r · y/ρ\nρ = √(x² + y²),  d = D − z";
+          }
           if (state.projection === "weakPerspective") {
             return "[ q/(aD)    0      0      0 ]\n[   0      q/D     0      0 ]\n[   0       0   −2/(F−n)  −(F+n)/(F−n) ]\n[   0       0      0      1 ]\n\nq = cot(θ/2),  a = W/H";
           }
@@ -519,17 +528,25 @@
         function updateMatrices() {
           const centerModes = isCentralProjection();
           const size = `${Math.round(width)} × ${Math.round(height)} px`;
+          $("#matrixSymbolicHeading").textContent = isCurvilinearProjection() ? "非线性投影公式" : "参数化投影矩阵 P";
+          $("#matrixProjectionHeading").textContent = isCurvilinearProjection() ? "当前映射参数" : "当前数值 P";
           $("#matrixSymbolic").textContent = symbolicProjectionMatrix();
-          $("#matrixProjection").textContent = matrixText(projectionMatrix());
+          $("#matrixProjection").textContent = isCurvilinearProjection()
+            ? `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nf = ${format(Math.min(width, height) * .43 / radians(state.fisheyeFov / 2), 2)} px/rad`
+            : matrixText(projectionMatrix());
           $("#matrixView").textContent = matrixText(viewMatrix());
-          $("#matrixSymbolicNote").textContent = state.projection === "weakPerspective"
+          $("#matrixSymbolicNote").textContent = isCurvilinearProjection()
+            ? `把视线角度映射为圆面半径；该非线性变换没有单一 4×4 投影矩阵。视口 ${size}。`
+            : state.projection === "weakPerspective"
             ? `弱透视把所有顶点深度近似为平均值 D；视口 ${size}。`
             : state.projection === "reversePerspective"
             ? `反向透视把齐次 w 改为 z_c + 2D；视口 ${size}。`
             : centerModes
             ? `中心透视使用垂直视场角 θ 与画幅比例 a。视口 ${size}。`
             : `${state.projection === "oblique" ? "斜投影使用画布平行映射。" : "正交与等轴测共用正交 P；视向由 V 决定。"}视口 ${size}。`;
-          $("#matrixProjectionNote").textContent = centerModes
+          $("#matrixProjectionNote").textContent = isCurvilinearProjection()
+            ? "f 将最大视线夹角映射到圆形视场边缘。"
+            : centerModes
             ? state.projection === "weakPerspective"
               ? `θ=${Math.round(state.fov)}°，D=${format(state.distance, 2)}；整件物体共用比例 f/D。`
               : state.projection === "reversePerspective"
@@ -541,7 +558,9 @@
           $("#matrixViewNote").textContent = state.projection === "oblique"
             ? "斜投影保持 V=I；拖动不旋转相机，深度方向由 α 控制。"
             : `相机距离 D=${format(state.distance, 2)}；视角 yaw=${format(state.yaw, 2)} rad，pitch=${format(state.pitch, 2)} rad。`;
-          $("#matrixFootnote").textContent = state.projection === "weakPerspective"
+          $("#matrixFootnote").textContent = isCurvilinearProjection()
+            ? "鱼眼根据 atan2(ρ,d) 计算每条视线的角度，再转为画面半径；常规 4×4 矩阵无法表达这一步非线性映射。"
+            : state.projection === "weakPerspective"
             ? "弱透视移除了逐点的透视除法，P 的 x/y 比例项含 f/D；相机距离只改变整件物体的统一缩放。"
             : state.projection === "reversePerspective"
             ? "最后一行令 w=z_c+2D，因此深度越远，w 越小、画面尺度越大。w=0 是奇异平面，远裁剪面设在它之前。"
@@ -562,9 +581,11 @@
           $("#relationCopy").textContent = preset.relation;
           $("#relationSummary").textContent = preset.summary;
           $("#sceneCode").textContent = objectCodes[state.object];
-          $("#vanishingControl").hidden = state.object !== "cube";
+          $("#vanishingControl").hidden = state.object !== "cube" || isCurvilinearProjection();
           $("#vanishingToggle").checked = state.vanishingOverlay;
-          $("#stageHint").textContent = state.projection === "oblique"
+          $("#stageHint").textContent = isCurvilinearProjection()
+            ? "视线角度映射到圆形视场"
+            : state.projection === "oblique"
             ? "方向由 α 控制"
                 : state.object === "cube" && state.vanishingOverlay && !hasFiniteVanishingPoints()
               ? "平行线不相交 · 灭点在无穷远"
@@ -575,6 +596,7 @@
           if (state.projection === "perspective") summary = `FOV ${Math.round(state.fov)}°　·　D ${format(state.distance)}`;
           else if (state.projection === "reversePerspective") summary = `FOV ${Math.round(state.fov)}°　·　D ${format(state.distance)}　·　远大近小`;
           else if (state.projection === "weakPerspective") summary = `FOV ${Math.round(state.fov)}°　·　平均深度 ${format(state.distance)}`;
+          else if (state.projection === "equidistantFisheye") summary = `等距投影　·　FOV ${Math.round(state.fisheyeFov)}°`;
           else if (state.projection === "orthographic") summary = `比例 ${format(state.scale, 2)}×　·　平行视线`;
           else if (state.projection === "isometric") summary = `标准仰角 35.264°　·　比例 ${format(state.scale, 2)}×${state.manualOrbit ? "　·　视向已调整" : ""}`;
           else summary = `α ${Math.round(state.obliqueAngle)}°　·　k ${format(state.depthFactor, 2)}×`;
@@ -589,6 +611,21 @@
           const x = cy * p.x - sy * p.z;
           const z0 = sy * p.x + cy * p.z;
           return { x, y: cp * p.y - sp * z0, z: sp * p.y + cp * z0 };
+        }
+
+        function projectedPath(points, closed = false) {
+          const result = [];
+          const segments = closed ? points.length : points.length - 1;
+          const steps = isCurvilinearProjection() ? 28 : 1;
+          for (let i = 0; i < segments; i++) {
+            const a = points[i], b = points[(i + 1) % points.length];
+            for (let step = 0; step < steps; step++) {
+              const t = step / steps;
+              result.push(project({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t }));
+            }
+          }
+          if (!closed && points.length) result.push(project(points[points.length - 1]));
+          return result;
         }
 
         function project(p) {
@@ -608,6 +645,14 @@
             const amount = focal / depth;
             return { x: centerX + amount * t.x, y: centerY - amount * t.y, z: t.z, depth, amount };
           }
+          if (state.projection === "equidistantFisheye") {
+            const depth = state.distance - t.z;
+            const rho = Math.hypot(t.x, t.y);
+            const theta = Math.atan2(rho, depth);
+            const focal = Math.min(width, height) * .43 / radians(state.fisheyeFov / 2);
+            const amount = rho > 1e-8 ? focal * theta / rho : focal / Math.max(.1, depth);
+            return { x: centerX + amount * t.x, y: centerY - amount * t.y, z: t.z, depth, amount };
+          }
           if (state.projection === "reversePerspective") {
             const depth = Math.max(.65, state.distance + t.z);
             const focal = height / (2 * Math.tan(radians(state.fov) / 2));
@@ -623,9 +668,10 @@
         }
 
         function line(a, b, color, lineWidth = 1, dash = []) {
-          const pa = project(a), pb = project(b);
-          if (![pa.x, pa.y, pb.x, pb.y].every(Number.isFinite)) return;
-          ctx.beginPath(); ctx.setLineDash(dash); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
+          const path = projectedPath([a, b]);
+          if (path.length < 2 || !path.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))) return;
+          ctx.beginPath(); ctx.setLineDash(dash); ctx.moveTo(path[0].x, path[0].y);
+          path.slice(1).forEach(point => ctx.lineTo(point.x, point.y));
           ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.stroke(); ctx.setLineDash([]);
         }
 
@@ -688,7 +734,7 @@
           const transformed = cubeVertices.map(transformPoint);
           const direction = viewDirection();
           const faces = cubeFaces.map((face, index) => {
-            const pts = face.ids.map(i => project(cubeVertices[i]));
+            const pts = projectedPath(face.ids.map(i => cubeVertices[i]), true);
             const depth = face.ids.reduce((sum, i) => sum + transformed[i].z, 0) / face.ids.length;
             const visible = face.normal.x * direction.x + face.normal.y * direction.y + face.normal.z * direction.z > 0;
             return { pts, depth, visible, index };
@@ -737,7 +783,7 @@
         }
 
         function drawExtendedCubeLines() {
-          if (!state.vanishingOverlay || state.object !== "cube") return;
+          if (!state.vanishingOverlay || state.object !== "cube" || isCurvilinearProjection()) return;
           ctx.save();
           for (const axis of ["x", "y", "z"]) {
             for (const [i, j] of cubeAxisEdges[axis]) drawExtendedScreenLine(project(cubeVertices[i]), project(cubeVertices[j]), vanishingColors[axis]);
@@ -746,7 +792,7 @@
         }
 
         function drawVanishingPoints() {
-          if (!state.vanishingOverlay || state.object !== "cube") return;
+          if (!state.vanishingOverlay || state.object !== "cube" || isCurvilinearProjection()) return;
           const center = project({ x: 0, y: 0, z: 0 });
           const centerX = center.x, centerY = center.y;
           const focal = height / (2 * Math.tan(radians(state.fov) / 2));
@@ -793,10 +839,10 @@
         }
 
         function drawSquare() {
-          const points = [
+          const points = projectedPath([
             { x: -1.45, y: 0, z: -1.45 }, { x: 1.45, y: 0, z: -1.45 },
             { x: 1.45, y: 0, z: 1.45 }, { x: -1.45, y: 0, z: 1.45 }
-          ].map(project);
+          ], true);
           ctx.beginPath(); points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath();
           ctx.fillStyle = "rgba(82, 129, 151, .16)"; ctx.fill(); ctx.strokeStyle = "#31546b"; ctx.lineWidth = 2; ctx.stroke();
           const c = project({ x: 0, y: 0, z: 0 });
@@ -812,7 +858,9 @@
 
         function drawSphere() {
           const center = project({ x: 0, y: 0, z: 0 });
-          const radius = isCentralProjection() ? center.amount * 1.24 : Math.min(width, height) * .185 * state.scale * 1.24;
+          const radius = state.projection === "equidistantFisheye"
+            ? Math.min(width, height) * .43 / radians(state.fisheyeFov / 2) * Math.asin(clamp(1.24 / state.distance, 0, .99))
+            : isCentralProjection() ? center.amount * 1.24 : Math.min(width, height) * .185 * state.scale * 1.24;
           const gradient = ctx.createRadialGradient(center.x - radius * .36, center.y - radius * .45, radius * .05, center.x, center.y, radius * 1.05);
           gradient.addColorStop(0, "rgba(179, 202, 204, .55)"); gradient.addColorStop(.72, "rgba(104, 151, 164, .19)"); gradient.addColorStop(1, "rgba(74, 117, 139, .08)");
           ctx.beginPath(); ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); ctx.fillStyle = gradient; ctx.fill();
@@ -846,6 +894,11 @@
 
         function draw() {
           ctx.clearRect(0, 0, width, height);
+          const fisheye = state.projection === "equidistantFisheye";
+          if (fisheye) {
+            ctx.save();
+            ctx.beginPath(); ctx.arc(width * .5, height * .5, Math.min(width, height) * .43, 0, Math.PI * 2); ctx.clip();
+          }
           drawGrid();
           drawExtendedCubeLines();
           if (state.object === "cube") drawCube();
@@ -854,6 +907,11 @@
           else drawSphere();
           if (state.object !== "axes") drawAxes(state.object === "square" ? 1.15 : .95);
           drawVanishingPoints();
+          if (fisheye) {
+            ctx.restore();
+            ctx.beginPath(); ctx.arc(width * .5, height * .5, Math.min(width, height) * .43, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(49, 84, 107, .4)"; ctx.lineWidth = 1.3; ctx.stroke();
+          }
         }
 
         function resize() {
@@ -869,10 +927,13 @@
         function render() { updateExplanation(); draw(); }
 
         $$(".object-option").forEach(button => button.addEventListener("click", () => setObject(button.dataset.object)));
-        $$(".family-option").forEach(button => button.addEventListener("click", () => selectProjection(button.dataset.family === "central" ? "perspective" : "orthographic")));
+        $$(".family-option").forEach(button => button.addEventListener("click", () => {
+          const firstPreset = Object.keys(presets).find(key => presets[key].family === button.dataset.family);
+          if (firstPreset) selectProjection(firstPreset);
+        }));
         $("#vanishingToggle").addEventListener("change", event => { state.vanishingOverlay = event.target.checked; render(); });
         $("#resetButton").addEventListener("click", () => {
-          state.fov = 58; state.distance = 6.8; state.scale = 1.12;
+          state.fov = 58; state.distance = 6.8; state.fisheyeFov = 180; state.scale = 1.12;
           state.obliqueAngle = 45; state.depthFactor = .58; state.manualOrbit = false;
           if (state.projection === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
           else if (state.projection === "oblique") { state.yaw = 0; state.pitch = 0; }
@@ -915,6 +976,7 @@
                   object: { type: "string", enum: ["cube", "square", "axes", "sphere"] },
                   projection: { type: "string", enum: Object.keys(presets) },
                   fov: { type: "number", minimum: 24, maximum: 110 },
+                  fisheyeFov: { type: "number", minimum: 100, maximum: 220 },
                   distance: { type: "number", minimum: 4, maximum: 14 },
                   scale: { type: "number", minimum: .65, maximum: 1.65 },
                   obliqueAngle: { type: "number", minimum: 20, maximum: 70 },
@@ -928,13 +990,13 @@
                 if (input.object !== undefined && !Object.hasOwn(objectLabels, input.object)) throw new RangeError("Unknown object.");
                 if (input.projection !== undefined && !Object.hasOwn(presets, input.projection)) throw new RangeError("Unknown projection.");
                 if (input.vanishingOverlay !== undefined && typeof input.vanishingOverlay !== "boolean") throw new TypeError("vanishingOverlay must be a boolean.");
-                for (const [key, limits] of Object.entries({ fov: [24, 110], distance: [4, 14], scale: [.65, 1.65], obliqueAngle: [20, 70], depthFactor: [.2, 1] })) {
+                for (const [key, limits] of Object.entries({ fov: [24, 110], fisheyeFov: [100, 220], distance: [4, 14], scale: [.65, 1.65], obliqueAngle: [20, 70], depthFactor: [.2, 1] })) {
                   if (input[key] !== undefined && (typeof input[key] !== "number" || !Number.isFinite(input[key]) || input[key] < limits[0] || input[key] > limits[1])) throw new RangeError(`${key} is outside its supported range.`);
                 }
                 if (input.object !== undefined) state.object = input.object;
                 if (input.projection !== undefined) state.projection = input.projection;
                 if (input.vanishingOverlay !== undefined) state.vanishingOverlay = input.vanishingOverlay;
-                for (const key of ["fov", "distance", "scale", "obliqueAngle", "depthFactor"]) if (input[key] !== undefined) state[key] = input[key];
+                for (const key of ["fov", "fisheyeFov", "distance", "scale", "obliqueAngle", "depthFactor"]) if (input[key] !== undefined) state[key] = input[key];
                 state.manualOrbit = false;
                 if (state.projection === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
                 else if (state.projection === "oblique") { state.yaw = 0; state.pitch = 0; }
