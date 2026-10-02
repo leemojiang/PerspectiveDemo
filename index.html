@@ -450,6 +450,7 @@
           else if (isCircularProjection()) state.fisheyeFov = clamp(state.fisheyeFov, 100, 220);
           state.manualOrbit = false;
           if (key === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
+          else if (key === "reversePerspective") { state.yaw = 0; state.pitch = 0; }
           else if (isObliqueProjection()) { state.yaw = 0; state.pitch = 0; if (key === "cavalier" || key === "cabinet") { state.obliqueAngle = 45; state.depthFactor = key === "cavalier" ? 1 : .5; } }
           else { state.yaw = -.72; state.pitch = .35; }
           setPressed(".family-option", "family", family());
@@ -1143,6 +1144,7 @@
           state.fov = 58; state.distance = 6.8; state.fisheyeFov = state.projection === "gnomonic" ? 120 : 180; state.scale = 1.12;
           state.obliqueAngle = 45; state.depthFactor = .58; state.manualOrbit = false;
           if (state.projection === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
+          else if (state.projection === "reversePerspective") { state.yaw = 0; state.pitch = 0; }
           else if (isObliqueProjection()) { state.yaw = 0; state.pitch = 0; state.obliqueAngle = 45; state.depthFactor = state.projection === "cavalier" ? 1 : state.projection === "cabinet" ? .5 : .58; }
           else { state.yaw = -.72; state.pitch = .35; }
           renderParams(); render();
