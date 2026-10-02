@@ -353,6 +353,7 @@
           stereographicFisheye: { family: "curved", title: "立体鱼眼", badge: "曲线 · 立体鱼眼", name: "立体鱼眼", desc: "保角投影，边缘扩张更强", glyph: "◉", intro: "用立体投影把视线方向映射到圆面，局部角度保持不变，边缘比等距鱼眼更扩张。", formula: "θ = atan2(ρ, d)\nr = 2f · tan(θ/2)\n(u, v) = r · (x, y) / ρ", note: "f 按视场角缩放，使 θ=FOV/2 落在圆形视场边缘。", relation: "中心附近与等距鱼眼相似；越靠近边缘，立体投影的径向拉伸越明显。", summary: "保角立体投影 · 边缘径向扩张" },
           equirectangular: { family: "curved", title: "等距柱面全景", badge: "曲线 · 柱面全景", name: "等距柱面全景", desc: "经纬角展开为 360°×180°", glyph: "▥", intro: "把三维方向转换成经度与纬度，再展开为横向全景图。", formula: "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − φ/π)\nd = D − z", note: "水平覆盖 360°，垂直覆盖 180°；左右边缘代表同一条经线。", relation: "水平方向按经度线性展开，靠近上下极点时形状会被明显拉伸。", summary: "经纬角展开 · 360°×180° 全景" },
           lambertAzimuthal: { family: "curved", title: "兰伯特方位等积", badge: "曲线 · 方位等积", name: "方位等积投影", desc: "圆形视场保持面积比例", glyph: "◉", intro: "把三维方向投到圆面，并保持球面区域的面积比例。", formula: "θ = atan2(ρ, d)\nr = 2R · sin(θ/2)\n(u, v) = r · (x, y) / ρ", note: "R 按视场角缩放；视场角较大时，圆形边缘仍保持有限。", relation: "球面上的区域面积映射后保持比例，形状与角度会产生变形。", summary: "方位等积 · 圆形视场保持面积" },
+          mercatorPanorama: { family: "curved", title: "墨卡托全景", badge: "曲线 · 墨卡托全景", name: "墨卡托全景", desc: "经度环绕，纬度向极点拉伸", glyph: "▤", intro: "将经度线性展开，并用对数函数拉伸纬度，模拟墨卡托式全景。", formula: "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nM = ln tan(π/4 + φ/2)\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − M/2π)\nd = D − z", note: "纬度限制在 ±85.051°，让全景高度有限；左右边缘首尾相接。", relation: "高纬方向被显著放大；极点无法落在有限高度，因此在 85.051° 截断。", summary: "墨卡托经纬展开 · 高纬拉伸" },
           poincareBall: { family: "nonEuclidean", title: "Poincaré 双曲球", badge: "非欧 · Poincaré 球", name: "Poincaré 双曲球", desc: "无穷空间压入单位球，测地线弯曲", glyph: "◌", intro: "把负曲率的双曲空间表示在单位球内；越靠近球边界，双曲距离增长越快。", formula: "ρ = tanh(r/2)\np = (ρ/r) · x\nds² = 4 · |dp|² / (1 − |p|²)²", note: "曲率 K=−1。球内直径或与边界正交的圆弧代表双曲测地线。", relation: "边界是无限远；测地线在球内通常表现为弯曲圆弧，角度在该模型中保持不变。", summary: "双曲空间 · K = −1 · 边界在无穷远" }
         };
         const state = {
@@ -374,6 +375,7 @@
         function family() { return current().family; }
         function isCurvilinearProjection() { return family() === "curved"; }
         function isCircularFisheye() { return state.projection === "equidistantFisheye" || state.projection === "stereographicFisheye" || state.projection === "lambertAzimuthal"; }
+        function isPanoramaProjection() { return state.projection === "equirectangular" || state.projection === "mercatorPanorama"; }
         function isPoincareProjection() { return state.projection === "poincareBall"; }
         function setPressed(selector, key, value) {
           $$(selector).forEach(button => button.setAttribute("aria-pressed", String(button.dataset[key] === value)));
@@ -403,7 +405,7 @@
           } else if (key === "equidistantFisheye" || key === "stereographicFisheye" || key === "lambertAzimuthal") {
             html += sliderRow("fisheyeFov", "鱼眼视场角", state.fisheyeFov, 100, 220, 1, "°", "100°", "220°");
             html += sliderRow("distance", "视点距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
-          } else if (key === "equirectangular") {
+          } else if (isPanoramaProjection()) {
             html += sliderRow("distance", "视点距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
           } else if (key === "poincareBall") {
             html += sliderRow("scale", "球体画面比例", state.scale, .65, 1.65, .01, "×", "缩小", "放大");
@@ -461,6 +463,7 @@
           }
           if (isCurvilinearProjection()) {
             if (state.projection === "equirectangular") return "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − φ/π)\nd = D − z";
+            if (state.projection === "mercatorPanorama") return "λ = atan2(x, d)\nφ = atan2(y, √(x²+d²))\nM = ln tan(π/4 + φ/2)\nu = W · (1/2 + λ/2π)\nv = H · (1/2 − M/2π)\nd = D − z";
             if (state.projection === "lambertAzimuthal") return "θ = atan2(ρ, d)\nr = 2R · sin(θ/2)\nu = r · x/ρ,  v = −r · y/ρ\nρ = √(x² + y²),  d = D − z";
             return state.projection === "stereographicFisheye"
               ? "θ = atan2(ρ, d)\nr = 2f · tan(θ/2)\nu = r · x/ρ,  v = −r · y/ρ\nρ = √(x² + y²),  d = D − z"
@@ -555,6 +558,8 @@
               ? `曲率 K = −1\n球半径 R = 1\n屏幕比例 = ${format(Math.min(width, height) * .36 * state.scale, 2)} px`
               : state.projection === "equirectangular"
               ? "水平范围 = 360°\n垂直范围 = 180°\n边缘经度 = ±180°"
+              : state.projection === "mercatorPanorama"
+                ? "水平范围 = 360°\n纬度范围 = ±85.051°\nM = ln tan(π/4 + φ/2)"
               : state.projection === "lambertAzimuthal"
                 ? `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nR = ${format(Math.min(width, height) * .43 / (2 * Math.sin(radians(state.fisheyeFov / 4))), 2)} px`
                 : `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nf = ${format(state.projection === "stereographicFisheye" ? Math.min(width, height) * .43 / (2 * Math.tan(radians(state.fisheyeFov / 4))) : Math.min(width, height) * .43 / radians(state.fisheyeFov / 2), 2)} px`
@@ -575,6 +580,7 @@
             ? isPoincareProjection()
               ? "单位球边界对应无限远；球内半径按双曲距离非线性压缩。"
               : state.projection === "equirectangular" ? "完整环绕一周，并覆盖从北极到南极的视线方向。"
+                : state.projection === "mercatorPanorama" ? "全景经度环绕；纬度限制在 ±85.051° 以保留有限画幅。"
                 : state.projection === "lambertAzimuthal" ? "R 按 FOV 缩放，映射到圆形视场并保持球面面积比例。"
                 : "f 将最大视线夹角映射到圆形视场边缘。"
             : centerModes
@@ -596,6 +602,8 @@
               ? "这是负曲率空间的几何模型，不是普通相机投影。测地线由直径或与单位球边界正交的圆弧构成，边界本身代表无限远。"
               : state.projection === "equirectangular"
               ? "柱面全景把每条视线转换为经纬角后展开；左右边界相接，接缝处的线段会绕回另一侧。这个角度映射没有单一 4×4 投影矩阵。"
+              : state.projection === "mercatorPanorama"
+                ? "墨卡托全景以对数正切展开纬度，极点趋于无穷，因此将输入纬度限制在 ±85.051°；经度方向仍首尾相接。"
               : state.projection === "lambertAzimuthal"
                 ? "兰伯特方位等积映射用 r=2R·sin(θ/2) 保持面积比例；角度函数使它无法写成单一 4×4 透视矩阵。"
                 : "鱼眼根据 atan2(ρ,d) 计算每条视线的角度，再转为画面半径；常规 4×4 矩阵无法表达这一步非线性映射。"
@@ -625,7 +633,7 @@
           $("#stageHint").textContent = isPoincareProjection()
             ? "球边界是无限远 · 测地线会弯曲"
             : isCurvilinearProjection()
-            ? state.projection === "equirectangular" ? "经纬角展开 · 左右边界相接" : "视线角度映射到圆形视场"
+            ? isPanoramaProjection() ? "经纬角展开 · 左右边界相接" : "视线角度映射到圆形视场"
             : state.projection === "oblique"
             ? "方向由 α 控制"
                 : state.object === "cube" && state.vanishingOverlay && !hasFiniteVanishingPoints()
@@ -638,6 +646,7 @@
           else if (state.projection === "reversePerspective") summary = `FOV ${Math.round(state.fov)}°　·　D ${format(state.distance)}　·　远大近小`;
           else if (state.projection === "weakPerspective") summary = `FOV ${Math.round(state.fov)}°　·　平均深度 ${format(state.distance)}`;
           else if (state.projection === "equirectangular") summary = "全景　·　360° × 180°";
+          else if (state.projection === "mercatorPanorama") summary = "墨卡托全景　·　高纬拉伸";
           else if (isCurvilinearProjection()) summary = `${state.projection === "stereographicFisheye" ? "立体投影" : state.projection === "lambertAzimuthal" ? "方位等积" : "等距投影"}　·　FOV ${Math.round(state.fisheyeFov)}°`;
           else if (isPoincareProjection()) summary = "双曲空间　·　K = −1　·　边界在无穷远";
           else if (state.projection === "orthographic") summary = `比例 ${format(state.scale, 2)}×　·　平行视线`;
@@ -711,7 +720,7 @@
             for (let step = 0; step < steps; step++) {
               const t = step / steps;
               const point = project({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
-              if (state.projection === "equirectangular" && result.length) {
+              if (isPanoramaProjection() && result.length) {
                 const previousX = result[result.length - 1].x;
                 while (point.x - previousX > width / 2) point.x -= width;
                 while (point.x - previousX < -width / 2) point.x += width;
@@ -722,7 +731,7 @@
           if (!closed && points.length && isPoincareProjection()) result.push(project(poincarePoint(points[points.length - 1]), true));
           else if (!closed && points.length) {
             const point = project(points[points.length - 1]);
-            if (state.projection === "equirectangular" && result.length) {
+            if (isPanoramaProjection() && result.length) {
               const previousX = result[result.length - 1].x;
               while (point.x - previousX > width / 2) point.x -= width;
               while (point.x - previousX < -width / 2) point.x += width;
@@ -755,11 +764,15 @@
             return { x: centerX + amount * t.x, y: centerY - amount * t.y, z: t.z, depth, amount };
           }
           if (isCurvilinearProjection()) {
-            if (state.projection === "equirectangular") {
+            if (isPanoramaProjection()) {
               const depth = state.distance - t.z;
               const longitude = Math.atan2(t.x, depth);
               const latitude = Math.atan2(t.y, Math.hypot(t.x, depth));
-              return { x: width * (.5 + longitude / (2 * Math.PI)), y: height * (.5 - latitude / Math.PI), z: t.z, depth };
+              const safeLatitude = state.projection === "mercatorPanorama" ? clamp(latitude, radians(-85.05112878), radians(85.05112878)) : latitude;
+              const vertical = state.projection === "mercatorPanorama"
+                ? Math.log(Math.tan(Math.PI / 4 + safeLatitude / 2)) / (2 * Math.PI)
+                : safeLatitude / Math.PI;
+              return { x: width * (.5 + longitude / (2 * Math.PI)), y: height * (.5 - vertical), z: t.z, depth };
             }
             const depth = state.distance - t.z;
             const rho = Math.hypot(t.x, t.y);
@@ -788,7 +801,7 @@
         function line(a, b, color, lineWidth = 1, dash = []) {
           const path = projectedPath([a, b]);
           if (path.length < 2 || !path.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))) return;
-          const shifts = state.projection === "equirectangular" ? [-width, 0, width] : [0];
+          const shifts = isPanoramaProjection() ? [-width, 0, width] : [0];
           ctx.setLineDash(dash); ctx.strokeStyle = color; ctx.lineWidth = lineWidth;
           for (const shift of shifts) {
             ctx.beginPath(); ctx.moveTo(path[0].x + shift, path[0].y);
@@ -865,7 +878,7 @@
           const fills = ["rgba(83, 125, 148, .15)", "rgba(103, 146, 157, .22)", "rgba(217, 111, 75, .10)", "rgba(75, 112, 138, .19)", "rgba(105, 129, 131, .11)", "rgba(88, 131, 153, .18)"];
           ctx.save();
           for (const face of faces) {
-            const shifts = state.projection === "equirectangular" ? [-width, 0, width] : [0];
+            const shifts = isPanoramaProjection() ? [-width, 0, width] : [0];
             for (const shift of shifts) {
               ctx.beginPath(); face.pts.forEach((p, i) => i ? ctx.lineTo(p.x + shift, p.y) : ctx.moveTo(p.x + shift, p.y)); ctx.closePath();
               ctx.fillStyle = fills[face.index]; ctx.fill();
@@ -969,7 +982,7 @@
             { x: -1.45, y: 0, z: -1.45 }, { x: 1.45, y: 0, z: -1.45 },
             { x: 1.45, y: 0, z: 1.45 }, { x: -1.45, y: 0, z: 1.45 }
           ], true);
-          const shifts = state.projection === "equirectangular" ? [-width, 0, width] : [0];
+          const shifts = isPanoramaProjection() ? [-width, 0, width] : [0];
           for (const shift of shifts) {
             ctx.beginPath(); points.forEach((p, i) => i ? ctx.lineTo(p.x + shift, p.y) : ctx.moveTo(p.x + shift, p.y)); ctx.closePath();
             ctx.fillStyle = "rgba(82, 129, 151, .16)"; ctx.fill(); ctx.strokeStyle = "#31546b"; ctx.lineWidth = 2; ctx.stroke();
@@ -998,7 +1011,7 @@
               : edgeRadius * sphereTheta / thetaMax
             : isPoincareProjection() ? Math.min(width, height) * .36 * state.scale * .76
               : isCentralProjection() ? center.amount * 1.24 : Math.min(width, height) * .185 * state.scale * 1.24;
-          if (state.projection !== "equirectangular" && !isPoincareProjection()) {
+          if (!isPanoramaProjection() && !isPoincareProjection()) {
             const gradient = ctx.createRadialGradient(center.x - radius * .36, center.y - radius * .45, radius * .05, center.x, center.y, radius * 1.05);
             gradient.addColorStop(0, "rgba(179, 202, 204, .55)"); gradient.addColorStop(.72, "rgba(104, 151, 164, .19)"); gradient.addColorStop(1, "rgba(74, 117, 139, .08)");
             ctx.beginPath(); ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); ctx.fillStyle = gradient; ctx.fill();
