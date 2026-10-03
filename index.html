@@ -363,10 +363,11 @@
           kleinBall: { family: "nonEuclidean", title: "Klein 双曲球", badge: "非欧 · Klein 球", name: "Klein 双曲球", desc: "双曲测地线变为直弦，角度会变形", glyph: "◇", intro: "使用另一种单位球模型表示同一负曲率空间；双曲测地线在球内变成直线弦。", formula: "ρ = tanh(r)\np = (ρ/r) · x\nds² = |dp|²/(1−|p|²)\n      + (p·dp)²/(1−|p|²)²", note: "曲率 K=−1。球边界仍代表无限远；Klein 模型不保持角度。", relation: "与 Poincaré 球有相同的双曲距离结构，但弦是直线，角度与形状会产生更强变形。", summary: "双曲空间 · 直弦测地线 · 角度变形" }
         };
         presets.zParallel = { family: "central", title: "Z 平行透视", badge: "中心 · Z 平行", name: "Z 平行透视", desc: "XY 保留透视，Z 方向保持平行", glyph: "Ⅱ", intro: "以 Z 轴为竖直方向，透视缩放只取决于 XY 平面的位置；转动视角时，竖边保持平行。", formula: "r = x cos ψ − y sin ψ\nd = x sin ψ + y cos ψ\nw = 1 − k d\nu = W/2 + S r / w\nv = H/2 − S(z cos η − d sin η)/w", note: "ψ 为水平角，η 为俯仰角，k 为透视强度，S 为画面比例。地面为 XY 平面，需保持 w > 0。", relation: "同一条竖边的上下端使用相同缩放，因此 Z 方向不汇聚。远处的竖边仍然更短；严格正俯视或正仰视时，Z 边缩成点。", summary: "XY 近大远小 · Z 方向保持平行" };
+        presets.xyParallel = { family: "central", title: "XY 平行透视", badge: "中心 · XY 平行", name: "XY 平行透视", desc: "伪两点：XY 各自平行，Z 汇聚", glyph: "⋀", intro: "让 X、Y 两组同向直线各自保持平行，把透视汇聚只留给 Z 方向；所有竖边的延长线指向同一个灭点。", formula: "r = x cos ψ − y sin ψ\nd = x sin ψ + y cos ψ\nw = 1 − k z\nu = W/2 + S r / w\nv = H/2 − S(z cos η − d sin η)/w", note: "ψ 为水平角，η 为俯仰角，k 为 Z 方向透视强度。分母仅取决于高度 z，需保持 w > 0。", relation: "改变水平位置不会改变透视缩放，所以 X、Y 两组同向边分别平行；高度改变会使 Z 边汇聚。严格平视时，XY 平面侧对画面，两组水平边投影到同一方向。", summary: "X、Y 各自平行 · Z 汇聚到同一灭点" };
         const defaultView = Object.freeze({ yaw: -.72, pitch: .35 });
         const state = {
           object: "cube", projection: "perspective", fov: 58, distance: 6.8, fisheyeFov: 180,
-          scale: 1.12, obliqueAngle: 45, depthFactor: .58, horizontalPerspective: .22, yaw: defaultView.yaw, pitch: defaultView.pitch, manualOrbit: false, vanishingOverlay: true, cubeOcclusion: false
+          scale: 1.12, obliqueAngle: 45, depthFactor: .58, horizontalPerspective: .22, verticalPerspective: .22, yaw: defaultView.yaw, pitch: defaultView.pitch, manualOrbit: false, vanishingOverlay: true, cubeOcclusion: false
         };
         const objectLabels = { cube: "立方体", square: "正方形", axes: "坐标轴", sphere: "球体" };
         const objectCodes = { cube: "CUBE", square: "SQUARE", axes: "AXES", sphere: "SPHERE" };
@@ -382,6 +383,10 @@
 
         function family() { return current().family; }
         function isZParallelProjection() { return state.projection === "zParallel"; }
+        function isXYParallelProjection() { return state.projection === "xyParallel"; }
+        function isAxisConstrainedProjection() { return isZParallelProjection() || isXYParallelProjection(); }
+        function axisPerspectiveStrength() { return isXYParallelProjection() ? state.verticalPerspective : state.horizontalPerspective; }
+        function projectiveDepthSlope() { return axisPerspectiveStrength() * (isXYParallelProjection() ? Math.sin(state.pitch) : Math.cos(state.pitch)); }
         function isZCollapsed() { return isZParallelProjection() && Math.abs(Math.cos(state.pitch)) < 1e-8; }
         function yawDegrees() { return ((state.yaw * 180 / Math.PI) % 360 + 360) % 360; }
         function setDefaultView() { state.yaw = defaultView.yaw; state.pitch = defaultView.pitch; }
@@ -408,15 +413,16 @@
 
         function sliderRow(id, label, value, min, max, step, unit, low, high) {
           const pct = (value - min) / (max - min) * 100;
-          const shown = unit === "×" ? `${format(value, 2)}×` : unit === "%" ? `${Math.round(value * 100)}%` : unit === "" ? format(value, id === "horizontalPerspective" ? 2 : 1) : `${Math.round(value)}${unit}`;
+          const shown = unit === "×" ? `${format(value, 2)}×` : unit === "%" ? `${Math.round(value * 100)}%` : unit === "" ? format(value, id.endsWith("Perspective") ? 2 : 1) : `${Math.round(value)}${unit}`;
           return `<label class="param-row" for="${id}"><span class="param-heading"><span class="param-name">${label}</span><output class="param-value" id="${id}Value">${shown}</output></span><span class="range-control"><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${value}" style="--fill:${pct}%"><span class="param-range"><span>${low}</span><span>${high}</span></span></span></label>`;
         }
 
         function renderParams() {
           const key = state.projection;
           let html = "";
-          if (isZParallelProjection()) {
-            html += sliderRow("horizontalPerspective", "透视强度 k", state.horizontalPerspective, 0, .28, .01, "", "0 · 平行", "0.28 · 强");
+          if (isAxisConstrainedProjection()) {
+            const strengthKey = isXYParallelProjection() ? "verticalPerspective" : "horizontalPerspective";
+            html += sliderRow(strengthKey, isXYParallelProjection() ? "Z 汇聚强度 k" : "透视强度 k", axisPerspectiveStrength(), 0, .28, .01, "", "0 · 平行", "0.28 · 强");
             html += sliderRow("scale", "画面比例 s", state.scale, .65, 1.65, .01, "×", "缩小", "放大");
             html += sliderRow("yawDegrees", "水平角 ψ", yawDegrees(), 0, 360, 1, "°", "0°", "360°");
             html += sliderRow("pitchDegrees", "俯仰角 η", state.pitch * 180 / Math.PI, -90, 90, 1, "°", "−90° · 仰视", "+90° · 俯视");
@@ -449,8 +455,8 @@
               if (input.id === "yawDegrees") state.yaw = radians(value);
               else if (input.id === "pitchDegrees") state.pitch = radians(value);
               else state[input.id] = value;
-              const unit = input.id === "scale" || input.id === "depthFactor" ? "×" : input.id === "distance" || input.id === "horizontalPerspective" ? "" : "°";
-              const shown = unit === "×" ? `${format(value, 2)}×` : unit === "" ? format(value, input.id === "horizontalPerspective" ? 2 : 1) : `${Math.round(value)}°`;
+              const unit = input.id === "scale" || input.id === "depthFactor" ? "×" : input.id === "distance" || input.id.endsWith("Perspective") ? "" : "°";
+              const shown = unit === "×" ? `${format(value, 2)}×` : unit === "" ? format(value, input.id.endsWith("Perspective") ? 2 : 1) : `${Math.round(value)}°`;
               $(`#${input.id}Value`).textContent = shown;
               input.style.setProperty("--fill", `${(value - Number(input.min)) / (Number(input.max) - Number(input.min)) * 100}%`);
               render();
@@ -481,15 +487,15 @@
         }
 
         function isCentralProjection() { return family() === "central"; }
-        function hasFiniteVanishingPoints() { return state.projection === "perspective" || state.projection === "reversePerspective" || (isZParallelProjection() && state.horizontalPerspective > 0); }
+        function hasFiniteVanishingPoints() { return state.projection === "perspective" || state.projection === "reversePerspective" || (isAxisConstrainedProjection() && axisPerspectiveStrength() > 0); }
 
         function matrixText(matrix) {
           return matrix.map(row => `[ ${row.map(value => Number(value).toFixed(3).padStart(8, " ")).join("  ")} ]`).join("\n");
         }
 
         function symbolicProjectionMatrix() {
-          if (isZParallelProjection()) {
-            return "[ 2S/W    0       0       0 ]\n[   0   2S/H      0       0 ]\n[   0     0       0       0 ]\n[   0     0      −k       1 ]\n\nS = 0.185·min(W,H)·s\nw = 1 − k d";
+          if (isAxisConstrainedProjection()) {
+            return "[ 2S/W    0       0       0 ]\n[   0   2S/H      0       0 ]\n[   0     0       0       0 ]\n[   0     0      −k       1 ]\n\nS = 0.185·min(W,H)·s\nw = 1 − k " + (isXYParallelProjection() ? "z" : "d");
           }
           if (isPoincareProjection()) {
             return "ρ = tanh(r/2)\np = ρ · x/r,  |p| < 1\nds² = 4 · |dp|² / (1 − |p|²)²\n测地线：直径或正交边界的圆弧";
@@ -524,9 +530,9 @@
 
         function projectionMatrix() {
           const near = .1, far = 100;
-          if (isZParallelProjection()) {
+          if (isAxisConstrainedProjection()) {
             const base = Math.min(width, height) * .185 * state.scale;
-            return [[2 * base / width, 0, 0, 0], [0, 2 * base / height, 0, 0], [0, 0, 0, 0], [0, 0, -state.horizontalPerspective, 1]];
+            return [[2 * base / width, 0, 0, 0], [0, 2 * base / height, 0, 0], [0, 0, 0, 0], [0, 0, -axisPerspectiveStrength(), 1]];
           }
           if (state.projection === "weakPerspective") {
             const q = 1 / Math.tan(radians(state.fov) / 2), aspect = width / Math.max(1, height);
@@ -580,9 +586,9 @@
           if (isObliqueProjection()) return [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
           const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw);
           const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
-          if (isZParallelProjection()) {
-            // The third row retains horizontal depth only: world Z never enters w.
-            return [[cy, -sy, 0, 0], [-sp * sy, -sp * cy, cp, 0], [sy, cy, 0, 0], [0, 0, 0, 1]];
+          if (isAxisConstrainedProjection()) {
+            // Choose which world coordinates can contribute to the divisor w.
+            return [[cy, -sy, 0, 0], [-sp * sy, -sp * cy, cp, 0], isXYParallelProjection() ? [0, 0, 1, 0] : [sy, cy, 0, 0], [0, 0, 0, 1]];
           }
           return [
             [cy, 0, -sy, 0],
@@ -615,12 +621,19 @@
                 : `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nf = ${format(state.projection === "stereographicFisheye" ? Math.min(width, height) * .43 / (2 * Math.tan(radians(state.fisheyeFov / 4))) : state.projection === "gnomonic" ? Math.min(width, height) * .43 / Math.tan(radians(state.fisheyeFov / 2)) : Math.min(width, height) * .43 / radians(state.fisheyeFov / 2), 2)} px`
             : matrixText(projectionMatrix());
           $("#matrixView").textContent = matrixText(viewMatrix());
-          $("#matrixViewHeading").textContent = isZParallelProjection() ? "视向变换 V · Z 为竖直轴" : "相机视图矩阵 V";
+          $("#matrixViewHeading").textContent = isAxisConstrainedProjection() ? "视向变换 V · Z 为高度轴" : "相机视图矩阵 V";
+          if (isXYParallelProjection()) {
+            $("#matrixSymbolicNote").textContent = `透视分母 w=1−kz 只含世界高度 z；视口 ${size}。`;
+            $("#matrixProjectionNote").textContent = `k=${format(state.verticalPerspective, 2)}，比例 s=${format(state.scale, 2)}；第三行不参与 Canvas 的二维绘制。`;
+            $("#matrixViewNote").textContent = `V 输出 (r, z cosη−d sinη, z, 1)；ψ=${format(yawDegrees(), 1)}°，η=${format(state.pitch * 180 / Math.PI, 1)}°。`;
+            $("#matrixFootnote").textContent = "本模式以 Z 为高度轴、XY 为地面方向。w 不含 x、y，所以 Vx、Vy 在无穷远；k>0 时 Vz=(W/2, H/2+S cosη/k)。严格平视时水平面侧对画面；k=0 时三组方向均为平行投影。角度控制画面形状，视向变换 V 并非普通相机的刚体变换。";
+            return;
+          }
           if (isZParallelProjection()) {
             $("#matrixSymbolicNote").textContent = `透视分母 w=1−kd 不含世界高度 z；视口 ${size}。`;
             $("#matrixProjectionNote").textContent = `k=${format(state.horizontalPerspective, 2)}，比例 s=${format(state.scale, 2)}；第三行不参与 Canvas 的二维绘制。`;
             $("#matrixViewNote").textContent = `V 输出 (r, z cosη−d sinη, d, 1)，包含高度压缩；ψ=${format(yawDegrees(), 1)}°，η=${format(state.pitch * 180 / Math.PI, 1)}°。`;
-            $("#matrixFootnote").textContent = "本模式使用 Z 竖直、XY 地面；其他模式沿用 Y 竖直。V 的第三行只保留水平深度，因此 Z 灭点在无穷远。k=0 时为平行投影；η=±90° 时 Z 边缩成点，V 退化。";
+            $("#matrixFootnote").textContent = "Z 平行透视与 XY 平行透视均以 Z 为高度轴、XY 为地面方向；其余模式沿用 Y 竖直。这里 V 的第三行只保留水平深度，因此 Z 灭点在无穷远。k=0 时为平行投影；η=±90° 时 Z 边缩成点，V 退化。";
             return;
           }
           $("#matrixSymbolicNote").textContent = customMap
@@ -703,6 +716,8 @@
             ? isPoincareProjection() ? "球边界是无限远 · 测地线会弯曲" : "球边界是无限远 · 测地线是直弦"
             : isCurvilinearProjection()
             ? isPanoramaProjection() ? "经纬角展开 · 左右边界相接" : state.projection === "gnomonic" ? "大圆映为直线 · 视场小于 180°" : state.projection === "orthographicAzimuthal" ? "球面半球 · 圆形地平线" : "视线角度映射到圆形视场"
+            : isXYParallelProjection()
+            ? state.verticalPerspective === 0 ? "k = 0 · 三组方向均为平行投影" : "X、Y 各自平行 · Z 延长线汇聚"
             : isZParallelProjection()
             ? isZCollapsed() ? "正俯视 / 正仰视 · Z 边缩成点" : "XY 地面 · Z 竖直 · 拖动改变视角"
             : state.object === "cube" && state.cubeOcclusion
@@ -718,6 +733,16 @@
                 : "拖动旋转视角";
           let summary = "";
           if (state.projection === "perspective") summary = `FOV ${Math.round(state.fov)}°　·　D ${format(state.distance)}`;
+          else if (isXYParallelProjection()) {
+            summary = `k ${format(state.verticalPerspective, 2)}　·　俯仰 ${format(state.pitch * 180 / Math.PI, 0)}°`;
+            if (state.verticalPerspective === 0) {
+              $("#relationCopy").textContent = "Z 汇聚强度 k=0，所有点使用相同比例，X、Y、Z 三组同向直线都保持平行。";
+              $("#relationSummary").textContent = "k = 0 · 三组方向均保持平行";
+            } else if (Math.abs(Math.sin(state.pitch)) < 1e-8) {
+              $("#relationCopy").textContent = "当前为严格平视：XY 平面侧对画面，X、Y 两组边的投影处于同一水平方向；正对某个水平轴时，该轴缩成点。Z 边仍然汇聚。";
+              $("#relationSummary").textContent = "平视 · XY 侧向重合 · Z 汇聚";
+            }
+          }
           else if (isZParallelProjection()) {
             summary = `k ${format(state.horizontalPerspective, 2)}　·　俯仰 ${format(state.pitch * 180 / Math.PI, 0)}°`;
             if (isZCollapsed()) {
@@ -746,9 +771,9 @@
           if (isObliqueProjection()) return { x: p.x, y: p.y, z: p.z };
           const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw);
           const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
-          if (isZParallelProjection()) {
+          if (isAxisConstrainedProjection()) {
             const horizontalDepth = sy * p.x + cy * p.y;
-            return { x: cy * p.x - sy * p.y, y: cp * p.z - sp * horizontalDepth, z: horizontalDepth };
+            return { x: cy * p.x - sy * p.y, y: cp * p.z - sp * horizontalDepth, z: isXYParallelProjection() ? p.z : horizontalDepth };
           }
           const x = cy * p.x - sy * p.z;
           const z0 = sy * p.x + cy * p.z;
@@ -851,8 +876,8 @@
           const centerX = width * .5;
           const centerY = height * .5;
           const base = Math.min(width, height) * .185 * state.scale;
-          if (isZParallelProjection()) {
-            const depth = 1 - state.horizontalPerspective * t.z;
+          if (isAxisConstrainedProjection()) {
+            const depth = 1 - axisPerspectiveStrength() * t.z;
             const amount = base / depth;
             return { x: centerX + amount * t.x, y: centerY - amount * t.y, z: t.z, depth, amount };
           }
@@ -926,7 +951,7 @@
           const alpha = isCentralProjection() ? .17 : .24;
           ctx.lineWidth = 1;
           // Keep the complete grid before w=0 at every supported yaw and k.
-          const extent = state.projection === "reversePerspective" || isZParallelProjection() ? 2 : 4;
+          const extent = state.projection === "reversePerspective" || isAxisConstrainedProjection() ? 2 : 4;
           for (let i = -extent; i <= extent; i++) {
             ctx.strokeStyle = `rgba(109, 129, 137, ${i === 0 ? alpha * 1.7 : alpha})`;
             line(groundPoint(-extent, i, -1.35), groundPoint(extent, i, -1.35), ctx.strokeStyle, i === 0 ? 1.1 : .8);
@@ -937,7 +962,7 @@
 
         const axisColors = { x: "#dd7757", y: "#67947b", z: "#5c83ad" };
         function groundPoint(x, depth, elevation = 0) {
-          return isZParallelProjection() ? { x, y: depth, z: elevation } : { x, y: elevation, z: depth };
+          return isAxisConstrainedProjection() ? { x, y: depth, z: elevation } : { x, y: elevation, z: depth };
         }
         function arrow(from, to, color, label, labelOffset = [8, -7]) {
           const a = project(from), b = project(to);
@@ -975,22 +1000,22 @@
 
         function viewDirection() {
           if (isObliqueProjection()) return { x: 0, y: 0, z: -1 };
-          if (isZParallelProjection()) return { x: Math.sin(state.yaw) * Math.cos(state.pitch), y: Math.cos(state.yaw) * Math.cos(state.pitch), z: Math.sin(state.pitch) };
+          if (isAxisConstrainedProjection()) return { x: Math.sin(state.yaw) * Math.cos(state.pitch), y: Math.cos(state.yaw) * Math.cos(state.pitch), z: Math.sin(state.pitch) };
           return { x: Math.sin(state.yaw) * Math.cos(state.pitch), y: Math.sin(state.pitch), z: Math.cos(state.yaw) * Math.cos(state.pitch) };
         }
 
         function viewDepth(point) {
-          if (!isZParallelProjection()) return transformPoint(point).z;
+          if (!isAxisConstrainedProjection()) return transformPoint(point).z;
           const direction = viewDirection();
           return point.x * direction.x + point.y * direction.y + point.z * direction.z;
         }
 
         function isFaceVisible(face) {
           const direction = viewDirection();
-          if (isZParallelProjection()) {
-            // Scaled vector from the face to C=(sinψ/k, cosψ/k, tanη/k).
-            // This form also has finite limits at k=0 and η=±90°.
-            const factor = state.horizontalPerspective * Math.cos(state.pitch) / face.ids.length;
+          if (isAxisConstrainedProjection()) {
+            // Oriented viewing ray n - q*p. This remains finite even when
+            // the projective center is at infinity (q=0).
+            const factor = projectiveDepthSlope() / face.ids.length;
             for (const index of face.ids) {
               const vertex = cubeVertices[index];
               direction.x -= factor * vertex.x;
@@ -1094,14 +1119,15 @@
           if (!state.vanishingOverlay || state.object !== "cube" || isCurvilinearProjection() || isHyperbolicProjection()) return;
           const center = project({ x: 0, y: 0, z: 0 });
           const centerX = center.x, centerY = center.y;
-          const focal = isZParallelProjection() ? Math.min(width, height) * .185 * state.scale : height / (2 * Math.tan(radians(state.fov) / 2));
+          const focal = isAxisConstrainedProjection() ? Math.min(width, height) * .185 * state.scale : height / (2 * Math.tan(radians(state.fov) / 2));
           const directions = { x: { x: 1, y: 0, z: 0 }, y: { x: 0, y: 1, z: 0 }, z: { x: 0, y: 0, z: 1 } };
           for (const axis of ["x", "y", "z"]) {
             if (axis === "z" && isZCollapsed()) continue;
             const d = transformPoint(directions[axis]);
             const central = hasFiniteVanishingPoints();
-            const denominator = isZParallelProjection() ? state.horizontalPerspective * d.z : d.z;
-            const atInfinity = !central || Math.abs(denominator) < (isZParallelProjection() ? 1e-8 : .025);
+            const denominator = isAxisConstrainedProjection() ? axisPerspectiveStrength() * d.z : d.z;
+            const atInfinity = !central || Math.abs(denominator) < (isAxisConstrainedProjection() ? 1e-8 : .025);
+            if (isAxisConstrainedProjection() && atInfinity && Math.hypot(d.x, d.y) < 1e-8) continue;
             let point;
             if (central && !atInfinity) {
               const directionSign = state.projection === "reversePerspective" ? 1 : -1;
@@ -1133,8 +1159,8 @@
             const labelText = atInfinity ? `${label} → ∞` : inside ? label : `${label} · 画外`;
             const textWidth = ctx.measureText(labelText).width;
             const labelX = point.x > width * .68 ? point.x - textWidth - 9 : point.x + 9;
-            // Keep vanishing-point labels clear of the scene chips at top left.
-            const labelY = clamp(point.y - 7, labelX < 190 ? 50 : 14, height - 5);
+            // Leave room for the scene chips above and the interaction hint below.
+            const labelY = clamp(point.y - 7, labelX < 190 ? 50 : 14, height - 35);
             ctx.fillText(labelText, clamp(labelX, 5, width - textWidth - 5), labelY);
             ctx.restore();
           }
@@ -1162,7 +1188,7 @@
         }
 
         function drawSphere() {
-          const sphereDepth = point => viewDepth(point) - (isZParallelProjection() ? 1.24 ** 2 * state.horizontalPerspective * Math.cos(state.pitch) : 0);
+          const sphereDepth = point => viewDepth(point) - (isAxisConstrainedProjection() ? 1.24 ** 2 * projectiveDepthSlope() : 0);
           const center = project({ x: 0, y: 0, z: 0 });
           const sphereTheta = Math.asin(clamp(1.24 / state.distance, 0, .99));
           const thetaMax = radians(state.fisheyeFov / 2);
@@ -1182,9 +1208,9 @@
           if (!isPanoramaProjection() && !isHyperbolicProjection()) {
             const traceOutline = () => {
               ctx.beginPath();
-              if (!isZParallelProjection()) { ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); return; }
+              if (!isAxisConstrainedProjection()) { ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); return; }
               const n = viewDirection(), r = 1.24;
-              const offset = r * r * state.horizontalPerspective * Math.cos(state.pitch);
+              const offset = r * r * projectiveDepthSlope();
               const circleRadius = Math.sqrt(r * r - offset * offset);
               const reference = Math.abs(n.z) < .9 ? { x: 0, y: 0, z: 1 } : { x: 0, y: 1, z: 0 };
               const cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
@@ -1282,6 +1308,7 @@
           state.fov = 58; state.distance = 6.8; state.fisheyeFov = state.projection === "gnomonic" ? 120 : 180; state.scale = 1.12;
           state.obliqueAngle = 45; state.depthFactor = .58; state.manualOrbit = false; state.cubeOcclusion = false;
           state.horizontalPerspective = .22;
+          state.verticalPerspective = .22;
           if (state.projection === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
           else if (isObliqueProjection()) { state.yaw = 0; state.pitch = 0; state.obliqueAngle = 45; state.depthFactor = state.projection === "cavalier" ? 1 : state.projection === "cabinet" ? .5 : .58; }
           else setDefaultView();
@@ -1299,8 +1326,8 @@
           const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
           drag.x = event.clientX; drag.y = event.clientY;
           state.yaw += dx * .008;
-          state.pitch = isZParallelProjection() ? clamp(state.pitch - dy * .008, -Math.PI / 2, Math.PI / 2) : clamp(state.pitch - dy * .008, -.68, 1.18);
-          if (isZParallelProjection()) {
+          state.pitch = isAxisConstrainedProjection() ? clamp(state.pitch - dy * .008, -Math.PI / 2, Math.PI / 2) : clamp(state.pitch - dy * .008, -.68, 1.18);
+          if (isAxisConstrainedProjection()) {
             for (const [id, value] of [["yawDegrees", yawDegrees()], ["pitchDegrees", state.pitch * 180 / Math.PI]]) {
               const input = $(`#${id}`);
               input.value = value;
@@ -1338,8 +1365,9 @@
                   obliqueAngle: { type: "number", minimum: 20, maximum: 70 },
                   depthFactor: { type: "number", minimum: .2, maximum: 1 },
                   horizontalPerspective: { type: "number", minimum: 0, maximum: .28, description: "Horizontal perspective strength in Z-parallel mode." },
-                  yawDegrees: { type: "number", minimum: 0, maximum: 360, description: "Horizontal angle in Z-parallel mode." },
-                  pitchDegrees: { type: "number", minimum: -90, maximum: 90, description: "Elevation angle in Z-parallel mode; ±90 collapses Z edges." },
+                  verticalPerspective: { type: "number", minimum: 0, maximum: .28, description: "Z convergence strength in XY-parallel mode." },
+                  yawDegrees: { type: "number", minimum: 0, maximum: 360, description: "Horizontal angle in Z-parallel or XY-parallel mode." },
+                  pitchDegrees: { type: "number", minimum: -90, maximum: 90, description: "Elevation angle in Z-parallel or XY-parallel mode." },
                   vanishingOverlay: { type: "boolean" },
                   cubeOcclusion: { type: "boolean" }
                 }
@@ -1352,15 +1380,15 @@
                 if (input.vanishingOverlay !== undefined && typeof input.vanishingOverlay !== "boolean") throw new TypeError("vanishingOverlay must be a boolean.");
                 if (input.cubeOcclusion !== undefined && typeof input.cubeOcclusion !== "boolean") throw new TypeError("cubeOcclusion must be a boolean.");
                 const keepCentralView = presets[state.projection].family === "central" && (input.projection === undefined || presets[input.projection].family === "central");
-                for (const [key, limits] of Object.entries({ fov: [24, 110], fisheyeFov: [30, 220], distance: [4, 14], scale: [.65, 1.65], obliqueAngle: [20, 70], depthFactor: [.2, 1], horizontalPerspective: [0, .28], yawDegrees: [0, 360], pitchDegrees: [-90, 90] })) {
+                for (const [key, limits] of Object.entries({ fov: [24, 110], fisheyeFov: [30, 220], distance: [4, 14], scale: [.65, 1.65], obliqueAngle: [20, 70], depthFactor: [.2, 1], horizontalPerspective: [0, .28], verticalPerspective: [0, .28], yawDegrees: [0, 360], pitchDegrees: [-90, 90] })) {
                   if (input[key] !== undefined && (typeof input[key] !== "number" || !Number.isFinite(input[key]) || input[key] < limits[0] || input[key] > limits[1])) throw new RangeError(`${key} is outside its supported range.`);
                 }
-                if ((input.yawDegrees !== undefined || input.pitchDegrees !== undefined) && (input.projection ?? state.projection) !== "zParallel") throw new RangeError("Explicit orbit angles are supported in Z-parallel mode.");
+                if ((input.yawDegrees !== undefined || input.pitchDegrees !== undefined) && !["zParallel", "xyParallel"].includes(input.projection ?? state.projection)) throw new RangeError("Explicit orbit angles are supported in Z-parallel and XY-parallel modes.");
                 if (input.object !== undefined) state.object = input.object;
                 if (input.projection !== undefined) state.projection = input.projection;
                 if (input.vanishingOverlay !== undefined) state.vanishingOverlay = input.vanishingOverlay;
                 if (input.cubeOcclusion !== undefined) state.cubeOcclusion = input.cubeOcclusion;
-                for (const key of ["fov", "fisheyeFov", "distance", "scale", "obliqueAngle", "depthFactor", "horizontalPerspective"]) if (input[key] !== undefined) state[key] = input[key];
+                for (const key of ["fov", "fisheyeFov", "distance", "scale", "obliqueAngle", "depthFactor", "horizontalPerspective", "verticalPerspective"]) if (input[key] !== undefined) state[key] = input[key];
                 if (state.projection === "gnomonic") state.fisheyeFov = !input.fisheyeFov && state.fisheyeFov > 170 ? 120 : clamp(state.fisheyeFov, 30, 170);
                 else if (state.projection === "orthographicAzimuthal") state.fisheyeFov = clamp(state.fisheyeFov, 30, 180);
                 else if (isCircularProjection()) state.fisheyeFov = clamp(state.fisheyeFov, 100, 220);
@@ -1377,7 +1405,7 @@
                 setPressed(".object-option", "object", state.object);
                 setPressed(".family-option", "family", family());
                 renderPresets(); renderParams(); render();
-                return { object: state.object, projection: state.projection, title: current().title, fov: state.fov, distance: state.distance, scale: state.scale, obliqueAngle: state.obliqueAngle, depthFactor: state.depthFactor, horizontalPerspective: state.horizontalPerspective, yawDegrees: yawDegrees(), pitchDegrees: state.pitch * 180 / Math.PI, vanishingOverlay: state.vanishingOverlay, cubeOcclusion: state.cubeOcclusion };
+                return { object: state.object, projection: state.projection, title: current().title, fov: state.fov, distance: state.distance, scale: state.scale, obliqueAngle: state.obliqueAngle, depthFactor: state.depthFactor, horizontalPerspective: state.horizontalPerspective, verticalPerspective: state.verticalPerspective, yawDegrees: yawDegrees(), pitchDegrees: state.pitch * 180 / Math.PI, vanishingOverlay: state.vanishingOverlay, cubeOcclusion: state.cubeOcclusion };
               }
             }, { signal: lifecycle.signal })).catch(error => console.warn("Projection demo tool registration was unavailable.", error));
           } catch (error) {

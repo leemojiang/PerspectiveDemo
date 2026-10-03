@@ -36,6 +36,7 @@ function loadDemo() {
         this.inputs = [];
         for (const match of value.matchAll(/<input\b[^>]*>/g)) {
           const attrs = Object.fromEntries([...match[0].matchAll(/([\w-]+)="([^"]*)"/g)].map(m => [m[1], m[2]]));
+          delete attrs.style; // Keep the DOM-like style object when parsing inline CSS.
           const input = node(attrs.id);
           Object.assign(input, attrs);
           node(`${attrs.id}Value`);
@@ -141,19 +142,22 @@ test('opaque cube visibility uses its actual projection center and handles poles
   }
 });
 
-test('all presets and objects render finite coordinates, including Z-parallel limits', () => {
+test('all presets and objects render finite coordinates, including both constrained modes', () => {
   const app = loadDemo();
-  assert.equal(Object.keys(app.presets).length, 18);
+  assert.equal(Object.keys(app.presets).length, 19);
   for (const preset of Object.keys(app.presets)) {
     app.selectProjection(preset);
     for (const object of ['cube','square','axes','sphere']) app.setObject(object);
   }
-  app.selectProjection('zParallel');
-  for (const pitchDegrees of [-90, -42, 0, 42, 90]) for (const k of [0, .28]) {
-    for (const object of ['cube','square','axes','sphere']) app.tool.execute({ object, pitchDegrees, horizontalPerspective: k, cubeOcclusion: true });
+  for (const projection of ['zParallel', 'xyParallel']) {
+    app.selectProjection(projection);
+    for (const pitchDegrees of [-90, -42, 0, 42, 90]) for (const k of [0, .28]) {
+      for (const object of ['cube','square','axes','sphere']) app.tool.execute({ object, pitchDegrees, horizontalPerspective: k, verticalPerspective: k, cubeOcclusion: true });
+    }
   }
   app.nodes.get('resetButton').listeners.click();
   near(app.state.horizontalPerspective, .22);
+  near(app.state.verticalPerspective, .22);
   near(app.state.pitch, .35);
   app.selectProjection('perspective');
   assert.equal(app.nodes.get('matrixViewHeading').textContent, '相机视图矩阵 V');
@@ -166,4 +170,111 @@ test('invalid tool parameters fail before changing the scene', () => {
   assert.throws(() => app.tool.execute({ pitchDegrees: 90 }));
   app.tool.execute({ projection: 'zParallel', yawDegrees: 323, pitchDegrees: 42, horizontalPerspective: .28 });
   near(app.state.pitch, 42 * Math.PI / 180);
+});
+
+test('XY groups stay independently parallel at every angle and match the displayed matrices', () => {
+  const app = loadDemo();
+  app.selectProjection('xyParallel');
+  for (let yaw = 0; yaw <= 360; yaw += 15) for (let pitch = -90; pitch <= 90; pitch += 15) for (const k of [0, .22, .28]) {
+    Object.assign(app.state, { yaw: yaw * Math.PI / 180, pitch: pitch * Math.PI / 180, verticalPerspective: k });
+    const p = app.projectionMatrix(), v = app.viewMatrix();
+    for (const axis of ['x', 'y']) {
+      let reference;
+      for (const z of [-1, .27, 1]) for (const offset of [-1, .63]) {
+        const a = { x: offset, y: offset, z }, b = { ...a, [axis]: a[axis] + .35 };
+        const pa = app.project(a), pb = app.project(b);
+        const delta = [pb.x - pa.x, pb.y - pa.y];
+        if (reference) near(delta[0] * reference[1] - delta[1] * reference[0], 0, 1e-7);
+        else reference = delta;
+        const clip = multiply(p, multiply(v, [b.x, b.y, b.z, 1]));
+        near(pb.x, 400 * (1 + clip[0] / clip[3]));
+        near(pb.y, 250 * (1 - clip[1] / clip[3]));
+        assert.ok(clip[3] > 0);
+      }
+    }
+  }
+});
+
+test('all Z edge extensions meet the same finite point, including overhead views', () => {
+  const app = loadDemo();
+  app.selectProjection('xyParallel');
+  const S = 500 * .185 * app.state.scale;
+  for (let yaw = 0; yaw <= 360; yaw += 30) for (const pitch of [-90, -60, -30, 0, 30, 60, 90]) for (const k of [.01, .22, .28]) {
+    Object.assign(app.state, { yaw: yaw * Math.PI / 180, pitch: pitch * Math.PI / 180, verticalPerspective: k });
+    const vp = { x: 400, y: 250 + S * Math.cos(app.state.pitch) / k };
+    for (const x of [-1, .31, 1]) for (const y of [-1, .19, 1]) {
+      const a = app.project({ x, y, z: -1 }), b = app.project({ x, y, z: 1 });
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const cross = dx * (vp.y - a.y) - dy * (vp.x - a.x);
+      near(cross / Math.max(1, Math.hypot(dx, dy) * Math.hypot(vp.x - a.x, vp.y - a.y)), 0);
+    }
+  }
+  Object.assign(app.state, { pitch: .7, verticalPerspective: .28 });
+  const atHeight = z => {
+    const a = app.project({x:0,y:0,z}), b = app.project({x:1,y:0,z});
+    return Math.hypot(b.x-a.x,b.y-a.y);
+  };
+  near(atHeight(1) / atHeight(-1), 1.28 / .72);
+});
+
+test('XY mode draws two infinite labels and a correct Z point without inventing collapsed axes', () => {
+  const app = loadDemo();
+  app.tool.execute({ projection: 'xyParallel', yawDegrees: 323, pitchDegrees: 70, verticalPerspective: .28 });
+  app.labels.length = app.calls.length = 0;
+  app.drawVanishingPoints();
+  assert.ok(app.labels.includes('Vx → ∞'));
+  assert.ok(app.labels.includes('Vy → ∞'));
+  assert.ok(app.labels.includes('Vz'));
+  const vz = app.calls.at(-1).args;
+  near(vz[0], 400);
+  near(vz[1], 250 + 500 * .185 * app.state.scale * Math.cos(70 * Math.PI / 180) / .28);
+  app.tool.execute({ pitchDegrees: 90 });
+  app.calls.length = 0;
+  app.drawVanishingPoints();
+  near(app.calls.at(-1).args[0], 400);
+  near(app.calls.at(-1).args[1], 250);
+  app.tool.execute({ verticalPerspective: 0 });
+  app.labels.length = 0;
+  app.drawVanishingPoints();
+  assert.ok(!app.labels.some(label => label.startsWith('Vz')), 'collapsed Z has no direction at infinity');
+  app.tool.execute({ yawDegrees: 0, pitchDegrees: 0, verticalPerspective: .22 });
+  app.labels.length = 0;
+  app.drawVanishingPoints();
+  assert.ok(!app.labels.some(label => label.startsWith('Vy')), 'end-on Y axis collapses');
+  assert.match(app.nodes.get('relationCopy').textContent, /侧对画面/);
+});
+
+test('XY opaque faces follow projected winding across positive, negative and zero pitch', () => {
+  const app = loadDemo();
+  app.selectProjection('xyParallel');
+  for (const yaw of [0, .5, Math.PI / 2, 2, 3, 5]) for (const pitch of [-Math.PI / 2, -.7, 0, .7, Math.PI / 2]) for (const k of [0, .28]) {
+    Object.assign(app.state, { yaw, pitch, verticalPerspective: k });
+    for (const face of app.cubeFaces) {
+      const points = face.ids.map(i => app.project(app.cubeVertices[i]));
+      const area = points.reduce((sum, p, i) => {
+        const q = points[(i + 1) % points.length];
+        return sum + p.x * q.y - p.y * q.x;
+      }, 0);
+      assert.equal(app.isFaceVisible(face), area > 1e-6, `face winding at yaw ${yaw}, pitch ${pitch}, k ${k}`);
+    }
+  }
+});
+
+test('the two modes keep separate strengths and preserve angles when switching', () => {
+  const app = loadDemo();
+  app.tool.execute({ projection: 'zParallel', horizontalPerspective: .12, yawDegrees: 125, pitchDegrees: -42 });
+  app.tool.execute({ projection: 'xyParallel', verticalPerspective: .28 });
+  near(app.state.yaw, 125 * Math.PI / 180);
+  near(app.state.pitch, -42 * Math.PI / 180);
+  const input = app.nodes.get('verticalPerspective');
+  input.value = '.17';
+  input.listeners.input();
+  near(app.state.verticalPerspective, .17);
+  assert.equal(app.nodes.get('verticalPerspectiveValue').textContent, '0.17');
+  app.selectProjection('zParallel');
+  near(app.state.horizontalPerspective, .12);
+  near(app.state.verticalPerspective, .17);
+  near(app.state.pitch, -42 * Math.PI / 180);
+  assert.throws(() => app.tool.execute({ projection: 'xyParallel', verticalPerspective: .5 }));
+  assert.equal(app.state.projection, 'zParallel');
 });
