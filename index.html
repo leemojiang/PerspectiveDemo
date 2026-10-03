@@ -118,7 +118,7 @@
       .stage-hud { position: absolute; z-index: 1; top: 12px; left: 13px; display: flex; align-items: center; gap: 8px; pointer-events: none; }
       .hud-chip { padding: 5px 8px; border: 1px solid rgba(206, 207, 198, .86); border-radius: 5px; background: rgba(255, 254, 250, .8); color: #6f7d82; font: 10px/1.1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .08em; }
       .stage-hint { position: absolute; z-index: 1; right: 12px; bottom: 11px; color: #828b8c; font-size: 12px; pointer-events: none; }
-      .viewport-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 2px 1px; color: #69777e; font-size: 12px; }
+      .viewport-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 2px 1px; color: #69777e; font-size: 12px; }
       .viewport-readout { display: flex; align-items: center; gap: 8px; }
       .vanishing-control { display: inline-flex; align-items: center; gap: 6px; color: #5e6d73; white-space: nowrap; cursor: pointer; }
       .vanishing-control input { accent-color: var(--navy); }
@@ -362,10 +362,11 @@
           poincareBall: { family: "nonEuclidean", title: "Poincaré 双曲球", badge: "非欧 · Poincaré 球", name: "Poincaré 双曲球", desc: "无穷空间压入单位球，测地线弯曲", glyph: "◌", intro: "把负曲率的双曲空间表示在单位球内；越靠近球边界，双曲距离增长越快。", formula: "ρ = tanh(r/2)\np = (ρ/r) · x\nds² = 4 · |dp|² / (1 − |p|²)²", note: "曲率 K=−1。球内直径或与边界正交的圆弧代表双曲测地线。", relation: "边界是无限远；测地线在球内通常表现为弯曲圆弧，角度在该模型中保持不变。", summary: "双曲空间 · K = −1 · 边界在无穷远" },
           kleinBall: { family: "nonEuclidean", title: "Klein 双曲球", badge: "非欧 · Klein 球", name: "Klein 双曲球", desc: "双曲测地线变为直弦，角度会变形", glyph: "◇", intro: "使用另一种单位球模型表示同一负曲率空间；双曲测地线在球内变成直线弦。", formula: "ρ = tanh(r)\np = (ρ/r) · x\nds² = |dp|²/(1−|p|²)\n      + (p·dp)²/(1−|p|²)²", note: "曲率 K=−1。球边界仍代表无限远；Klein 模型不保持角度。", relation: "与 Poincaré 球有相同的双曲距离结构，但弦是直线，角度与形状会产生更强变形。", summary: "双曲空间 · 直弦测地线 · 角度变形" }
         };
+        presets.zParallel = { family: "central", title: "Z 平行透视", badge: "中心 · Z 平行", name: "Z 平行透视", desc: "XY 保留透视，Z 方向保持平行", glyph: "Ⅱ", intro: "以 Z 轴为竖直方向，透视缩放只取决于 XY 平面的位置；转动视角时，竖边保持平行。", formula: "r = x cos ψ − y sin ψ\nd = x sin ψ + y cos ψ\nw = 1 − k d\nu = W/2 + S r / w\nv = H/2 − S(z cos η − d sin η)/w", note: "ψ 为水平角，η 为俯仰角，k 为透视强度，S 为画面比例。地面为 XY 平面，需保持 w > 0。", relation: "同一条竖边的上下端使用相同缩放，因此 Z 方向不汇聚。远处的竖边仍然更短；严格正俯视或正仰视时，Z 边缩成点。", summary: "XY 近大远小 · Z 方向保持平行" };
         const defaultView = Object.freeze({ yaw: -.72, pitch: .35 });
         const state = {
           object: "cube", projection: "perspective", fov: 58, distance: 6.8, fisheyeFov: 180,
-          scale: 1.12, obliqueAngle: 45, depthFactor: .58, yaw: defaultView.yaw, pitch: defaultView.pitch, manualOrbit: false, vanishingOverlay: true, cubeOcclusion: false
+          scale: 1.12, obliqueAngle: 45, depthFactor: .58, horizontalPerspective: .22, yaw: defaultView.yaw, pitch: defaultView.pitch, manualOrbit: false, vanishingOverlay: true, cubeOcclusion: false
         };
         const objectLabels = { cube: "立方体", square: "正方形", axes: "坐标轴", sphere: "球体" };
         const objectCodes = { cube: "CUBE", square: "SQUARE", axes: "AXES", sphere: "SPHERE" };
@@ -380,6 +381,9 @@
         const current = () => presets[state.projection];
 
         function family() { return current().family; }
+        function isZParallelProjection() { return state.projection === "zParallel"; }
+        function isZCollapsed() { return isZParallelProjection() && Math.abs(Math.cos(state.pitch)) < 1e-8; }
+        function yawDegrees() { return ((state.yaw * 180 / Math.PI) % 360 + 360) % 360; }
         function setDefaultView() { state.yaw = defaultView.yaw; state.pitch = defaultView.pitch; }
         function isCurvilinearProjection() { return family() === "curved"; }
         function isObliqueProjection() { return state.projection === "oblique" || state.projection === "cavalier" || state.projection === "cabinet"; }
@@ -404,14 +408,19 @@
 
         function sliderRow(id, label, value, min, max, step, unit, low, high) {
           const pct = (value - min) / (max - min) * 100;
-          const shown = unit === "×" ? `${format(value, 2)}×` : unit === "%" ? `${Math.round(value * 100)}%` : unit === "" ? format(value, 1) : `${Math.round(value)}${unit}`;
+          const shown = unit === "×" ? `${format(value, 2)}×` : unit === "%" ? `${Math.round(value * 100)}%` : unit === "" ? format(value, id === "horizontalPerspective" ? 2 : 1) : `${Math.round(value)}${unit}`;
           return `<label class="param-row" for="${id}"><span class="param-heading"><span class="param-name">${label}</span><output class="param-value" id="${id}Value">${shown}</output></span><span class="range-control"><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${value}" style="--fill:${pct}%"><span class="param-range"><span>${low}</span><span>${high}</span></span></span></label>`;
         }
 
         function renderParams() {
           const key = state.projection;
           let html = "";
-          if (key === "perspective" || key === "reversePerspective" || key === "weakPerspective") {
+          if (isZParallelProjection()) {
+            html += sliderRow("horizontalPerspective", "透视强度 k", state.horizontalPerspective, 0, .28, .01, "", "0 · 平行", "0.28 · 强");
+            html += sliderRow("scale", "画面比例 s", state.scale, .65, 1.65, .01, "×", "缩小", "放大");
+            html += sliderRow("yawDegrees", "水平角 ψ", yawDegrees(), 0, 360, 1, "°", "0°", "360°");
+            html += sliderRow("pitchDegrees", "俯仰角 η", state.pitch * 180 / Math.PI, -90, 90, 1, "°", "−90° · 仰视", "+90° · 俯视");
+          } else if (key === "perspective" || key === "reversePerspective" || key === "weakPerspective") {
             html += sliderRow("fov", "视场角 FOV", state.fov, 24, 110, 1, "°", "24°", "110°");
             html += sliderRow("distance", "相机距离 D", state.distance, 4, 14, .1, "", "近 · 4", "远 · 14");
           } else if (isCircularProjection()) {
@@ -437,9 +446,11 @@
           $("#params").querySelectorAll('input[type="range"]').forEach(input => {
             input.addEventListener("input", () => {
               const value = Number(input.value);
-              state[input.id] = value;
-              const unit = input.id === "scale" || input.id === "depthFactor" ? "×" : input.id === "distance" ? "" : "°";
-              const shown = unit === "×" ? format(value, 2) : input.id === "distance" ? format(value, 1) : `${Math.round(value)}°`;
+              if (input.id === "yawDegrees") state.yaw = radians(value);
+              else if (input.id === "pitchDegrees") state.pitch = radians(value);
+              else state[input.id] = value;
+              const unit = input.id === "scale" || input.id === "depthFactor" ? "×" : input.id === "distance" || input.id === "horizontalPerspective" ? "" : "°";
+              const shown = unit === "×" ? `${format(value, 2)}×` : unit === "" ? format(value, input.id === "horizontalPerspective" ? 2 : 1) : `${Math.round(value)}°`;
               $(`#${input.id}Value`).textContent = shown;
               input.style.setProperty("--fill", `${(value - Number(input.min)) / (Number(input.max) - Number(input.min)) * 100}%`);
               render();
@@ -469,14 +480,17 @@
           render();
         }
 
-        function isCentralProjection() { return state.projection === "perspective" || state.projection === "reversePerspective" || state.projection === "weakPerspective"; }
-        function hasFiniteVanishingPoints() { return state.projection === "perspective" || state.projection === "reversePerspective"; }
+        function isCentralProjection() { return family() === "central"; }
+        function hasFiniteVanishingPoints() { return state.projection === "perspective" || state.projection === "reversePerspective" || (isZParallelProjection() && state.horizontalPerspective > 0); }
 
         function matrixText(matrix) {
           return matrix.map(row => `[ ${row.map(value => Number(value).toFixed(3).padStart(8, " ")).join("  ")} ]`).join("\n");
         }
 
         function symbolicProjectionMatrix() {
+          if (isZParallelProjection()) {
+            return "[ 2S/W    0       0       0 ]\n[   0   2S/H      0       0 ]\n[   0     0       0       0 ]\n[   0     0      −k       1 ]\n\nS = 0.185·min(W,H)·s\nw = 1 − k d";
+          }
           if (isPoincareProjection()) {
             return "ρ = tanh(r/2)\np = ρ · x/r,  |p| < 1\nds² = 4 · |dp|² / (1 − |p|²)²\n测地线：直径或正交边界的圆弧";
           }
@@ -510,6 +524,10 @@
 
         function projectionMatrix() {
           const near = .1, far = 100;
+          if (isZParallelProjection()) {
+            const base = Math.min(width, height) * .185 * state.scale;
+            return [[2 * base / width, 0, 0, 0], [0, 2 * base / height, 0, 0], [0, 0, 0, 0], [0, 0, -state.horizontalPerspective, 1]];
+          }
           if (state.projection === "weakPerspective") {
             const q = 1 / Math.tan(radians(state.fov) / 2), aspect = width / Math.max(1, height);
             return [
@@ -562,6 +580,10 @@
           if (isObliqueProjection()) return [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
           const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw);
           const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
+          if (isZParallelProjection()) {
+            // The third row retains horizontal depth only: world Z never enters w.
+            return [[cy, -sy, 0, 0], [-sp * sy, -sp * cy, cp, 0], [sy, cy, 0, 0], [0, 0, 0, 1]];
+          }
           return [
             [cy, 0, -sy, 0],
             [-sp * sy, cp, -sp * cy, 0],
@@ -593,6 +615,14 @@
                 : `FOV = ${Math.round(state.fisheyeFov)}°\nθmax = ${format(radians(state.fisheyeFov) / 2, 3)} rad\nf = ${format(state.projection === "stereographicFisheye" ? Math.min(width, height) * .43 / (2 * Math.tan(radians(state.fisheyeFov / 4))) : state.projection === "gnomonic" ? Math.min(width, height) * .43 / Math.tan(radians(state.fisheyeFov / 2)) : Math.min(width, height) * .43 / radians(state.fisheyeFov / 2), 2)} px`
             : matrixText(projectionMatrix());
           $("#matrixView").textContent = matrixText(viewMatrix());
+          $("#matrixViewHeading").textContent = isZParallelProjection() ? "视向变换 V · Z 为竖直轴" : "相机视图矩阵 V";
+          if (isZParallelProjection()) {
+            $("#matrixSymbolicNote").textContent = `透视分母 w=1−kd 不含世界高度 z；视口 ${size}。`;
+            $("#matrixProjectionNote").textContent = `k=${format(state.horizontalPerspective, 2)}，比例 s=${format(state.scale, 2)}；第三行不参与 Canvas 的二维绘制。`;
+            $("#matrixViewNote").textContent = `V 输出 (r, z cosη−d sinη, d, 1)，包含高度压缩；ψ=${format(yawDegrees(), 1)}°，η=${format(state.pitch * 180 / Math.PI, 1)}°。`;
+            $("#matrixFootnote").textContent = "本模式使用 Z 竖直、XY 地面；其他模式沿用 Y 竖直。V 的第三行只保留水平深度，因此 Z 灭点在无穷远。k=0 时为平行投影；η=±90° 时 Z 边缩成点，V 退化。";
+            return;
+          }
           $("#matrixSymbolicNote").textContent = customMap
             ? isHyperbolicProjection()
               ? `先将双曲空间映射进单位球，再作正交显示；视口 ${size}。`
@@ -673,6 +703,8 @@
             ? isPoincareProjection() ? "球边界是无限远 · 测地线会弯曲" : "球边界是无限远 · 测地线是直弦"
             : isCurvilinearProjection()
             ? isPanoramaProjection() ? "经纬角展开 · 左右边界相接" : state.projection === "gnomonic" ? "大圆映为直线 · 视场小于 180°" : state.projection === "orthographicAzimuthal" ? "球面半球 · 圆形地平线" : "视线角度映射到圆形视场"
+            : isZParallelProjection()
+            ? isZCollapsed() ? "正俯视 / 正仰视 · Z 边缩成点" : "XY 地面 · Z 竖直 · 拖动改变视角"
             : state.object === "cube" && state.cubeOcclusion
             ? state.projection === "reversePerspective" ? "原视点侧保持在前 · 背面半透明透显" : "彩色实面 · 背面边线隐藏"
             : state.projection === "reversePerspective"
@@ -686,6 +718,16 @@
                 : "拖动旋转视角";
           let summary = "";
           if (state.projection === "perspective") summary = `FOV ${Math.round(state.fov)}°　·　D ${format(state.distance)}`;
+          else if (isZParallelProjection()) {
+            summary = `k ${format(state.horizontalPerspective, 2)}　·　俯仰 ${format(state.pitch * 180 / Math.PI, 0)}°`;
+            if (isZCollapsed()) {
+              $("#relationCopy").textContent = "当前为严格正俯视或正仰视：高度项 z cosη 为零，同一条 Z 边的两端重合，无法再显示为有长度的平行线。";
+              $("#relationSummary").textContent = "正俯视 / 正仰视 · Z 边缩成点";
+            } else if (state.horizontalPerspective === 0) {
+              $("#relationCopy").textContent = "透视强度 k=0，所有点共用相同比例，三组平行边都保持平行；此时 XY 也没有近大远小。";
+              $("#relationSummary").textContent = "k = 0 · 三组方向均保持平行";
+            }
+          }
           else if (state.projection === "reversePerspective") summary = `FOV ${Math.round(state.fov)}°　·　D ${format(state.distance)}　·　远大近小`;
           else if (state.projection === "weakPerspective") summary = `FOV ${Math.round(state.fov)}°　·　平均深度 ${format(state.distance)}`;
           else if (state.projection === "equirectangular") summary = "全景　·　360° × 180°";
@@ -704,6 +746,10 @@
           if (isObliqueProjection()) return { x: p.x, y: p.y, z: p.z };
           const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw);
           const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
+          if (isZParallelProjection()) {
+            const horizontalDepth = sy * p.x + cy * p.y;
+            return { x: cy * p.x - sy * p.y, y: cp * p.z - sp * horizontalDepth, z: horizontalDepth };
+          }
           const x = cy * p.x - sy * p.z;
           const z0 = sy * p.x + cy * p.z;
           return { x, y: cp * p.y - sp * z0, z: sp * p.y + cp * z0 };
@@ -805,6 +851,11 @@
           const centerX = width * .5;
           const centerY = height * .5;
           const base = Math.min(width, height) * .185 * state.scale;
+          if (isZParallelProjection()) {
+            const depth = 1 - state.horizontalPerspective * t.z;
+            const amount = base / depth;
+            return { x: centerX + amount * t.x, y: centerY - amount * t.y, z: t.z, depth, amount };
+          }
           if (isHyperbolicProjection()) {
             const ballScale = Math.min(width, height) * .36 * state.scale;
             return { x: centerX + ballScale * t.x, y: centerY - ballScale * t.y, z: t.z, depth: t.z, amount: ballScale };
@@ -874,18 +925,23 @@
           ctx.save();
           const alpha = isCentralProjection() ? .17 : .24;
           ctx.lineWidth = 1;
-          const extent = state.projection === "reversePerspective" ? 2 : 4;
+          // Keep the complete grid before w=0 at every supported yaw and k.
+          const extent = state.projection === "reversePerspective" || isZParallelProjection() ? 2 : 4;
           for (let i = -extent; i <= extent; i++) {
             ctx.strokeStyle = `rgba(109, 129, 137, ${i === 0 ? alpha * 1.7 : alpha})`;
-            line({ x: -extent, y: -1.35, z: i }, { x: extent, y: -1.35, z: i }, ctx.strokeStyle, i === 0 ? 1.1 : .8);
-            line({ x: i, y: -1.35, z: -extent }, { x: i, y: -1.35, z: extent }, ctx.strokeStyle, i === 0 ? 1.1 : .8);
+            line(groundPoint(-extent, i, -1.35), groundPoint(extent, i, -1.35), ctx.strokeStyle, i === 0 ? 1.1 : .8);
+            line(groundPoint(i, -extent, -1.35), groundPoint(i, extent, -1.35), ctx.strokeStyle, i === 0 ? 1.1 : .8);
           }
           ctx.restore();
         }
 
         const axisColors = { x: "#dd7757", y: "#67947b", z: "#5c83ad" };
+        function groundPoint(x, depth, elevation = 0) {
+          return isZParallelProjection() ? { x, y: depth, z: elevation } : { x, y: elevation, z: depth };
+        }
         function arrow(from, to, color, label, labelOffset = [8, -7]) {
           const a = project(from), b = project(to);
+          if (Math.hypot(b.x - a.x, b.y - a.y) < 1e-8) return;
           ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2;
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
           const angle = Math.atan2(b.y - a.y, b.x - a.x), len = 8;
@@ -919,19 +975,40 @@
 
         function viewDirection() {
           if (isObliqueProjection()) return { x: 0, y: 0, z: -1 };
+          if (isZParallelProjection()) return { x: Math.sin(state.yaw) * Math.cos(state.pitch), y: Math.cos(state.yaw) * Math.cos(state.pitch), z: Math.sin(state.pitch) };
           return { x: Math.sin(state.yaw) * Math.cos(state.pitch), y: Math.sin(state.pitch), z: Math.cos(state.yaw) * Math.cos(state.pitch) };
         }
 
-        function drawCube() {
-          const transformed = cubeVertices.map(transformPoint);
+        function viewDepth(point) {
+          if (!isZParallelProjection()) return transformPoint(point).z;
           const direction = viewDirection();
+          return point.x * direction.x + point.y * direction.y + point.z * direction.z;
+        }
+
+        function isFaceVisible(face) {
+          const direction = viewDirection();
+          if (isZParallelProjection()) {
+            // Scaled vector from the face to C=(sinψ/k, cosψ/k, tanη/k).
+            // This form also has finite limits at k=0 and η=±90°.
+            const factor = state.horizontalPerspective * Math.cos(state.pitch) / face.ids.length;
+            for (const index of face.ids) {
+              const vertex = cubeVertices[index];
+              direction.x -= factor * vertex.x;
+              direction.y -= factor * vertex.y;
+              direction.z -= factor * vertex.z;
+            }
+          }
+          return face.normal.x * direction.x + face.normal.y * direction.y + face.normal.z * direction.z > 1e-10;
+        }
+
+        function drawCube() {
           const opaque = hasOpaqueCubeMode();
           const reverseSeeThrough = opaque && state.projection === "reversePerspective";
           const reversePainterOrder = isObliqueProjection();
           const faces = cubeFaces.map((face, index) => {
             const pts = projectedPath(face.ids.map(i => cubeVertices[i]), true);
-            const depth = face.ids.reduce((sum, i) => sum + transformed[i].z, 0) / face.ids.length;
-            const visible = face.normal.x * direction.x + face.normal.y * direction.y + face.normal.z * direction.z > 0;
+            const depth = face.ids.reduce((sum, i) => sum + viewDepth(cubeVertices[i]), 0) / face.ids.length;
+            const visible = isFaceVisible(face);
             return { pts, depth, visible, index };
           }).sort((a, b) => reversePainterOrder ? b.depth - a.depth : a.depth - b.depth);
           const fills = ["#4F7897", "#D58C5D", "#6F9E88", "#A67AA7", "#C1A34F", "#4D9992"];
@@ -952,13 +1029,13 @@
             for (const face of faces) if (!face.visible) drawFace(face, .32);
             for (const [a, b] of cubeEdges) {
               const adjacent = cubeFaces.filter(face => face.ids.includes(a) && face.ids.includes(b));
-              const visible = adjacent.some(face => face.normal.x * direction.x + face.normal.y * direction.y + face.normal.z * direction.z > 0);
+              const visible = adjacent.some(isFaceVisible);
               if (!visible) drawCubeEdge(a, b, false, true);
             }
             for (const face of faces) if (face.visible) drawFace(face, 1);
             for (const [a, b] of cubeEdges) {
               const adjacent = cubeFaces.filter(face => face.ids.includes(a) && face.ids.includes(b));
-              const visible = adjacent.some(face => face.normal.x * direction.x + face.normal.y * direction.y + face.normal.z * direction.z > 0);
+              const visible = adjacent.some(isFaceVisible);
               if (visible) drawCubeEdge(a, b, true);
             }
           } else {
@@ -968,7 +1045,7 @@
             }
             for (const [a, b] of cubeEdges) {
               const adjacent = cubeFaces.filter(face => face.ids.includes(a) && face.ids.includes(b));
-              const visible = adjacent.some(face => face.normal.x * direction.x + face.normal.y * direction.y + face.normal.z * direction.z > 0);
+              const visible = adjacent.some(isFaceVisible);
               if (opaque && !visible) continue;
               drawCubeEdge(a, b, visible);
             }
@@ -1017,16 +1094,18 @@
           if (!state.vanishingOverlay || state.object !== "cube" || isCurvilinearProjection() || isHyperbolicProjection()) return;
           const center = project({ x: 0, y: 0, z: 0 });
           const centerX = center.x, centerY = center.y;
-          const focal = height / (2 * Math.tan(radians(state.fov) / 2));
+          const focal = isZParallelProjection() ? Math.min(width, height) * .185 * state.scale : height / (2 * Math.tan(radians(state.fov) / 2));
           const directions = { x: { x: 1, y: 0, z: 0 }, y: { x: 0, y: 1, z: 0 }, z: { x: 0, y: 0, z: 1 } };
           for (const axis of ["x", "y", "z"]) {
+            if (axis === "z" && isZCollapsed()) continue;
             const d = transformPoint(directions[axis]);
             const central = hasFiniteVanishingPoints();
-            const atInfinity = !central || Math.abs(d.z) < .025;
+            const denominator = isZParallelProjection() ? state.horizontalPerspective * d.z : d.z;
+            const atInfinity = !central || Math.abs(denominator) < (isZParallelProjection() ? 1e-8 : .025);
             let point;
             if (central && !atInfinity) {
               const directionSign = state.projection === "reversePerspective" ? 1 : -1;
-              point = { x: centerX + directionSign * focal * d.x / d.z, y: centerY - directionSign * focal * d.y / d.z };
+              point = { x: centerX + directionSign * focal * d.x / denominator, y: centerY - directionSign * focal * d.y / denominator };
             } else {
               const tip = central ? project(directions[axis]) : project({ x: directions[axis].x * 2, y: directions[axis].y * 2, z: directions[axis].z * 2 });
               let dx = tip.x - centerX, dy = tip.y - centerY;
@@ -1051,10 +1130,11 @@
             ctx.fillStyle = "#fffefa"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.stroke();
             ctx.font = "600 11px ui-monospace, SFMono-Regular, Consolas, monospace";
             ctx.fillStyle = color;
-            const labelText = !central ? `${label} → ∞` : inside ? label : `${label} · 画外`;
+            const labelText = atInfinity ? `${label} → ∞` : inside ? label : `${label} · 画外`;
             const textWidth = ctx.measureText(labelText).width;
             const labelX = point.x > width * .68 ? point.x - textWidth - 9 : point.x + 9;
-            const labelY = clamp(point.y - 7, 14, height - 5);
+            // Keep vanishing-point labels clear of the scene chips at top left.
+            const labelY = clamp(point.y - 7, labelX < 190 ? 50 : 14, height - 5);
             ctx.fillText(labelText, clamp(labelX, 5, width - textWidth - 5), labelY);
             ctx.restore();
           }
@@ -1062,8 +1142,8 @@
 
         function drawSquare() {
           const points = projectedPath([
-            { x: -1.45, y: 0, z: -1.45 }, { x: 1.45, y: 0, z: -1.45 },
-            { x: 1.45, y: 0, z: 1.45 }, { x: -1.45, y: 0, z: 1.45 }
+            groundPoint(-1.45, -1.45), groundPoint(1.45, -1.45),
+            groundPoint(1.45, 1.45), groundPoint(-1.45, 1.45)
           ], true);
           const shifts = isPanoramaProjection() ? [-width, 0, width] : [0];
           for (const shift of shifts) {
@@ -1072,8 +1152,8 @@
           }
           const c = project({ x: 0, y: 0, z: 0 });
           ctx.beginPath(); ctx.arc(c.x, c.y, 3, 0, Math.PI * 2); ctx.fillStyle = "#d96f4b"; ctx.fill();
-          line({ x: -1.45, y: 0, z: 0 }, { x: 1.45, y: 0, z: 0 }, "rgba(49, 84, 107, .5)", 1, [4, 4]);
-          line({ x: 0, y: 0, z: -1.45 }, { x: 0, y: 0, z: 1.45 }, "rgba(49, 84, 107, .5)", 1, [4, 4]);
+          line(groundPoint(-1.45, 0), groundPoint(1.45, 0), "rgba(49, 84, 107, .5)", 1, [4, 4]);
+          line(groundPoint(0, -1.45), groundPoint(0, 1.45), "rgba(49, 84, 107, .5)", 1, [4, 4]);
         }
 
         function spherePoint(latitude, longitude) {
@@ -1082,6 +1162,7 @@
         }
 
         function drawSphere() {
+          const sphereDepth = point => viewDepth(point) - (isZParallelProjection() ? 1.24 ** 2 * state.horizontalPerspective * Math.cos(state.pitch) : 0);
           const center = project({ x: 0, y: 0, z: 0 });
           const sphereTheta = Math.asin(clamp(1.24 / state.distance, 0, .99));
           const thetaMax = radians(state.fisheyeFov / 2);
@@ -1099,10 +1180,29 @@
             : isHyperbolicProjection() ? Math.min(width, height) * .36 * state.scale * .76
               : isCentralProjection() ? center.amount * 1.24 : Math.min(width, height) * .185 * state.scale * 1.24;
           if (!isPanoramaProjection() && !isHyperbolicProjection()) {
+            const traceOutline = () => {
+              ctx.beginPath();
+              if (!isZParallelProjection()) { ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); return; }
+              const n = viewDirection(), r = 1.24;
+              const offset = r * r * state.horizontalPerspective * Math.cos(state.pitch);
+              const circleRadius = Math.sqrt(r * r - offset * offset);
+              const reference = Math.abs(n.z) < .9 ? { x: 0, y: 0, z: 1 } : { x: 0, y: 1, z: 0 };
+              const cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
+              const e = cross(n, reference), length = Math.hypot(e.x, e.y, e.z);
+              for (const axis of ["x", "y", "z"]) e[axis] /= length;
+              const g = cross(n, e);
+              for (let i = 0; i < 96; i++) {
+                const a = i * 2 * Math.PI / 96, point = {};
+                for (const axis of ["x", "y", "z"]) point[axis] = offset * n[axis] + circleRadius * (Math.cos(a) * e[axis] + Math.sin(a) * g[axis]);
+                const pixel = project(point);
+                if (i) ctx.lineTo(pixel.x, pixel.y); else ctx.moveTo(pixel.x, pixel.y);
+              }
+              ctx.closePath();
+            };
             const gradient = ctx.createRadialGradient(center.x - radius * .36, center.y - radius * .45, radius * .05, center.x, center.y, radius * 1.05);
             gradient.addColorStop(0, "rgba(179, 202, 204, .55)"); gradient.addColorStop(.72, "rgba(104, 151, 164, .19)"); gradient.addColorStop(1, "rgba(74, 117, 139, .08)");
-            ctx.beginPath(); ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); ctx.fillStyle = gradient; ctx.fill();
-            ctx.beginPath(); ctx.arc(center.x, center.y, radius, 0, Math.PI * 2); ctx.strokeStyle = "rgba(49, 84, 107, .65)"; ctx.lineWidth = 1.4; ctx.stroke();
+            traceOutline(); ctx.fillStyle = gradient; ctx.fill();
+            traceOutline(); ctx.strokeStyle = "rgba(49, 84, 107, .65)"; ctx.lineWidth = 1.4; ctx.stroke();
           }
           const segments = [];
           const divisions = 44;
@@ -1110,8 +1210,8 @@
             for (let i = 0; i < divisions; i++) {
               const a = spherePoint(radians(lat), 2 * Math.PI * i / divisions);
               const b = spherePoint(radians(lat), 2 * Math.PI * (i + 1) / divisions);
-              const mid = transformPoint({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 });
-              segments.push({ a, b, z: mid.z, accent: lat === 0 });
+              const depth = sphereDepth({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 });
+              segments.push({ a, b, z: depth, accent: lat === 0 });
             }
           }
           for (let j = 0; j < 12; j++) {
@@ -1120,8 +1220,8 @@
               const latA = -Math.PI / 2 + Math.PI * i / divisions;
               const latB = -Math.PI / 2 + Math.PI * (i + 1) / divisions;
               const a = spherePoint(latA, lon), b = spherePoint(latB, lon);
-              const mid = transformPoint({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 });
-              segments.push({ a, b, z: mid.z, accent: false });
+              const depth = sphereDepth({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 });
+              segments.push({ a, b, z: depth, accent: false });
             }
           }
           segments.sort((a, b) => a.z - b.z);
@@ -1181,6 +1281,7 @@
         $("#resetButton").addEventListener("click", () => {
           state.fov = 58; state.distance = 6.8; state.fisheyeFov = state.projection === "gnomonic" ? 120 : 180; state.scale = 1.12;
           state.obliqueAngle = 45; state.depthFactor = .58; state.manualOrbit = false; state.cubeOcclusion = false;
+          state.horizontalPerspective = .22;
           if (state.projection === "isometric") { state.yaw = Math.PI / 4; state.pitch = Math.atan(1 / Math.sqrt(2)); }
           else if (isObliqueProjection()) { state.yaw = 0; state.pitch = 0; state.obliqueAngle = 45; state.depthFactor = state.projection === "cavalier" ? 1 : state.projection === "cabinet" ? .5 : .58; }
           else setDefaultView();
@@ -1197,7 +1298,16 @@
           if (!drag || drag.pointerId !== event.pointerId) return;
           const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
           drag.x = event.clientX; drag.y = event.clientY;
-          state.yaw += dx * .008; state.pitch = clamp(state.pitch - dy * .008, -.68, 1.18);
+          state.yaw += dx * .008;
+          state.pitch = isZParallelProjection() ? clamp(state.pitch - dy * .008, -Math.PI / 2, Math.PI / 2) : clamp(state.pitch - dy * .008, -.68, 1.18);
+          if (isZParallelProjection()) {
+            for (const [id, value] of [["yawDegrees", yawDegrees()], ["pitchDegrees", state.pitch * 180 / Math.PI]]) {
+              const input = $(`#${id}`);
+              input.value = value;
+              input.style.setProperty("--fill", `${(value - Number(input.min)) / (Number(input.max) - Number(input.min)) * 100}%`);
+              $(`#${id}Value`).textContent = `${Math.round(value)}°`;
+            }
+          }
           state.manualOrbit = state.projection === "isometric";
           updateExplanation(); draw();
         });
@@ -1206,7 +1316,7 @@
 
         const observer = new ResizeObserver(resize);
         observer.observe(stage);
-        renderPresets(); renderParams(); render(); resize();
+        renderPresets(); renderParams(); resize(); render();
 
         const modelContext = document.modelContext;
         if (modelContext?.registerTool) {
@@ -1227,6 +1337,9 @@
                   scale: { type: "number", minimum: .65, maximum: 1.65 },
                   obliqueAngle: { type: "number", minimum: 20, maximum: 70 },
                   depthFactor: { type: "number", minimum: .2, maximum: 1 },
+                  horizontalPerspective: { type: "number", minimum: 0, maximum: .28, description: "Horizontal perspective strength in Z-parallel mode." },
+                  yawDegrees: { type: "number", minimum: 0, maximum: 360, description: "Horizontal angle in Z-parallel mode." },
+                  pitchDegrees: { type: "number", minimum: -90, maximum: 90, description: "Elevation angle in Z-parallel mode; ±90 collapses Z edges." },
                   vanishingOverlay: { type: "boolean" },
                   cubeOcclusion: { type: "boolean" }
                 }
@@ -1239,14 +1352,15 @@
                 if (input.vanishingOverlay !== undefined && typeof input.vanishingOverlay !== "boolean") throw new TypeError("vanishingOverlay must be a boolean.");
                 if (input.cubeOcclusion !== undefined && typeof input.cubeOcclusion !== "boolean") throw new TypeError("cubeOcclusion must be a boolean.");
                 const keepCentralView = presets[state.projection].family === "central" && (input.projection === undefined || presets[input.projection].family === "central");
-                for (const [key, limits] of Object.entries({ fov: [24, 110], fisheyeFov: [30, 220], distance: [4, 14], scale: [.65, 1.65], obliqueAngle: [20, 70], depthFactor: [.2, 1] })) {
+                for (const [key, limits] of Object.entries({ fov: [24, 110], fisheyeFov: [30, 220], distance: [4, 14], scale: [.65, 1.65], obliqueAngle: [20, 70], depthFactor: [.2, 1], horizontalPerspective: [0, .28], yawDegrees: [0, 360], pitchDegrees: [-90, 90] })) {
                   if (input[key] !== undefined && (typeof input[key] !== "number" || !Number.isFinite(input[key]) || input[key] < limits[0] || input[key] > limits[1])) throw new RangeError(`${key} is outside its supported range.`);
                 }
+                if ((input.yawDegrees !== undefined || input.pitchDegrees !== undefined) && (input.projection ?? state.projection) !== "zParallel") throw new RangeError("Explicit orbit angles are supported in Z-parallel mode.");
                 if (input.object !== undefined) state.object = input.object;
                 if (input.projection !== undefined) state.projection = input.projection;
                 if (input.vanishingOverlay !== undefined) state.vanishingOverlay = input.vanishingOverlay;
                 if (input.cubeOcclusion !== undefined) state.cubeOcclusion = input.cubeOcclusion;
-                for (const key of ["fov", "fisheyeFov", "distance", "scale", "obliqueAngle", "depthFactor"]) if (input[key] !== undefined) state[key] = input[key];
+                for (const key of ["fov", "fisheyeFov", "distance", "scale", "obliqueAngle", "depthFactor", "horizontalPerspective"]) if (input[key] !== undefined) state[key] = input[key];
                 if (state.projection === "gnomonic") state.fisheyeFov = !input.fisheyeFov && state.fisheyeFov > 170 ? 120 : clamp(state.fisheyeFov, 30, 170);
                 else if (state.projection === "orthographicAzimuthal") state.fisheyeFov = clamp(state.fisheyeFov, 30, 180);
                 else if (isCircularProjection()) state.fisheyeFov = clamp(state.fisheyeFov, 100, 220);
@@ -1258,10 +1372,12 @@
                   else if (state.projection === "cabinet") { if (input.obliqueAngle === undefined) state.obliqueAngle = 45; if (input.depthFactor === undefined) state.depthFactor = .5; }
                 }
                 else if (!keepCentralView) setDefaultView();
+                if (input.yawDegrees !== undefined) state.yaw = radians(input.yawDegrees);
+                if (input.pitchDegrees !== undefined) state.pitch = radians(input.pitchDegrees);
                 setPressed(".object-option", "object", state.object);
                 setPressed(".family-option", "family", family());
                 renderPresets(); renderParams(); render();
-                return { object: state.object, projection: state.projection, title: current().title, fov: state.fov, distance: state.distance, scale: state.scale, obliqueAngle: state.obliqueAngle, depthFactor: state.depthFactor, vanishingOverlay: state.vanishingOverlay, cubeOcclusion: state.cubeOcclusion };
+                return { object: state.object, projection: state.projection, title: current().title, fov: state.fov, distance: state.distance, scale: state.scale, obliqueAngle: state.obliqueAngle, depthFactor: state.depthFactor, horizontalPerspective: state.horizontalPerspective, yawDegrees: yawDegrees(), pitchDegrees: state.pitch * 180 / Math.PI, vanishingOverlay: state.vanishingOverlay, cubeOcclusion: state.cubeOcclusion };
               }
             }, { signal: lifecycle.signal })).catch(error => console.warn("Projection demo tool registration was unavailable.", error));
           } catch (error) {
